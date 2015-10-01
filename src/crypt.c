@@ -1176,7 +1176,7 @@ mm_generate_dh_parameters(PyObject *self, PyObject *args, PyObject *kwargs)
         /* ???? should be threadified? */
         static char *kwlist[] = { "filename", "verbose", "bits", NULL };
         char *filename;
-        int bits=512, verbose=0;
+        int bits=2048, verbose=0;
 
         BIO *out = NULL;
         DH *dh = NULL;

@@ -152,7 +152,8 @@ mm_TLSContext_new(PyObject *self, PyObject *args, PyObject *kwargs)
                 err = 1;
         /* But not actually SSL2. */
         if (certfile) {
-                SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+                /*SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);*/
+                SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE|SSL_OP_SINGLE_DH_USE|SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
         }
         if (!err && !SSL_CTX_set_cipher_list(ctx,
                                        TLS1_TXT_DHE_RSA_WITH_AES_128_SHA))
