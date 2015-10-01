@@ -7,18 +7,14 @@
 
 __all__ = [ 'ServerList', 'MismatchedID', 'DirectoryConfig', 'Directory' ]
 
-import binascii
 import os
-import re
 import stat
-import time
 
 import mixminion.Config
 import mixminion.Crypto
 
 from mixminion.Common import LOG, MixError, MixFatalError, UIError, \
-     formatBase64, iterFileLines, writePickled, readPickled, formatTime
-
+     formatBase64, writePickled, readPickled
 
 class Directory:
     """Wrapper class for directory filestores.
@@ -27,6 +23,10 @@ class Directory:
        that contains servers which have been uploaded but not yet inserted
        into the directory, and a 'ServerList' which contains the servers in
        the directory along with the directory's private keys and so on.
+
+       A directory server also keeps an 'IDCache' that's readable by the CGI
+       user and read/writable by the directory user.  It maps nicknames to
+       identity keys.
 
        The 'ServerInbox' is readable and (mostly) writable by the CGI user.
        The 'ServerList' is private, and only readable by the directory user.
@@ -38,8 +38,7 @@ class Directory:
        Layout:
           BASEDIR/dir            [Base for ServerList.]
           BASEDIR/inbox          [Base for ServerInbox.]
-
-       DOCDOC
+          BASEDIR/identity_cache [File for IDCache.]
     """
     ##Fields:
     # config: a DirectoryConfig instance
@@ -165,6 +164,9 @@ class DirectoryConfig(mixminion.Config._ConfigFile):
            "CGIGroup" : ('REQUIRE', None, None),
         },
         'Directory' : {
+           "BadServer" : ("ALLOW*", None, None),
+           "BadServerFile" : ("ALLOW*", "filename", None),
+           "ExcludeServer" : ("ALLOW*", None, None),
            "ClientVersions" : ("REQUIRE", "list", None),
            "ServerVersions" : ("REQUIRE", "list", None),
         },
@@ -219,133 +221,126 @@ class DirectoryConfig(mixminion.Config._ConfigFile):
             raise mixminion.Config.ConfigError("User %s is not in group %s"
                                 %(cgiuser, cgigrp))
 
-class VoteFile(mixminion.Filestore.PickleCache):
-    """File listing dirserver's current disposition towards various
-       nickname/identity comibations.  Each can be voted 'yes', 'no',
-       'abstain', or 'ignore'.
-    """
-    ## Fields:
-    # status: identity fingerprint -> ("yes", "nickname") | ("no", None) |
-    #     ("abstain", None) | ("ignore", None)
-    # haveComment: fingerprint -> [ nickname ] for servers in comments.
-    # uid, gid
-    def __init__(self, fname, uid=None, gid=None):
-        mixminion.Filestore.PickleCache.__init__(
-            self, fname, fname+".cache")
-        self.uid = uid
-        self.gid = gid
-        self.status = None
-        self.load()
+class MismatchedID(Exception):
+    """Exception class: raised when the identity key on a new server
+       descriptor doesn't match the identity key known for that nickname."""
+    pass
 
-    def _reload(self,):
-        pat = re.compile(r'(\#?)\s*(yes|no|abstain|ignore)\s+(\S+)\s+([a-fA-F0-9 ]+)')
-        f = open(self._fname_base, 'r')
+class IDCache:
+    """Cache to hold a set of nickname->identity key mappings"""
+    ##Fields:
+    # cache: map from lowercased nickname to ID fingerprint.
+    # location: filename to hold pickled cache.
+    # dirty: are all the values in 'self.cache' flushed to disk? (boolean)
+    # postSave: None, or a function to call after every save.
+    ##Pickled Format:
+    # ("V0", {lcnickname -> ID Fingerprint} )
+    def __init__(self, location, postSave=None):
+        """Create an identity cache object.
+
+           location -- name of file to hold pickled cache.
+           postSave -- optionally, a function to be called after every
+              save."""
+        self.location = location
+        self.dirty = 0
+        self.cache = None
+        self.postSave = postSave
+
+    def emptyCache(self):
+        """Remove all entries from this cache."""
+        self.dirty = 1
+        self.cache = {}
+
+    def containsID(self, nickname, ID):
+        """Check the identity for the server named 'nickname'.  If the
+           server is not known, return false. If the identity matches the
+           identity key fingerprint 'ID', return true.  If the server is
+           known, but the identity does not match, raise MismatchedID.
+        """
+        if self.cache is None: self.load()
+
+        lcnickname = nickname.lower()
         try:
-            status = {}
-            lineof = {}
-            byName = {}
-            haveComment = {}
-            lineno = 0
-            fname = self._fname_base
-            for line in iterFileLines(f):
-                lineno += 1
-                line = line.strip()
-                if not line: continue
-                m = pat.match(line)
-                if not m:
-                    if line[0] != '#':
-                        LOG.warn("Skipping ill-formed line %s of %s",lineno,fname)
-                    continue
-                commented, vote, nickname, fingerprint = m.groups()
-                try:
-                    mixminion.Config._parseNickname(nickname)
-                except mixminion.Config.ConfigError, e:
-                    if not commented:
-                        LOG.warn("Skipping bad nickname '%s', on line %s of %s: %s",
-                                 nickname, lineno, fname, e)
-                    continue
-                fingerprint = _normalizeFingerprint(fingerprint)
-                if len(fingerprint) != mixminion.Crypto.DIGEST_LEN * 2:
-                    if not commented:
-                        LOG.warn("Bad length for digest on line %s of %s",
-                                 lineno, fname)
-                        continue
-                if status.has_key(fingerprint):
-                    if not commented:
-                        LOG.warn("Ignoring duplicate entry for fingerprint on line %s (first appeared on line %s)", lineno, lineof[fingerprint])
-                    continue
-                lineof[fingerprint] = lineno
-                if commented:
-                    haveComment.setdefault(fingerprint, []).append(
-                        nickname.lower())
-                elif vote == 'yes':
-                    status[fingerprint] = (vote, nickname)
-                    if byName.has_key(nickname.lower()):
-                        if not commented:
-                            LOG.warn("Ignoring second yes-vote for a nickname %r",
-                                     nickname)
-                        continue
-                    byName[nickname.lower()] = fingerprint
-                else:
-                    status[fingerprint] = (vote, None)
-            self.status = status
-            self.haveComment = haveComment
-        finally:
-            f.close()
-
-    def _getForPickle(self):
-        return ("VoteCache-1", self.status, self.haveComment)
-
-    def _setFromPickle(self, p):
-        if not isinstance(p, types.TupleType) or p[0] != 'VoteCache-1':
+            if self.cache[lcnickname] != ID:
+                raise MismatchedID()
+            return 1
+        except KeyError:
             return 0
-        self.status = p[1]
-        self.haveComment = p[2]
-        return 1
 
-    def appendUnknownServers(self, lst, now=None):
-        # list of [(nickname, fingerprint) ...]
-        lst = [ (name, fp) for name, fp in lst if name.lower() not in
-                self.haveComment.get(_normalizeFingerprint(fp), ()) ]
-        if not lst:
+    def containsServer(self, server):
+        """Check the identity key contained in a server descriptor.  Return
+           true if the server is known, false if the server unknown, and
+           raise MismatchedID if the server is known but its ID is
+           incorrect."""
+        nickname = server.getNickname()
+        ID = getIDFingerprint(server)
+        return self.containsID(nickname, ID)
+
+    def insertID(self, nickname, ID):
+        """Record the server named 'nickname' as having an identity key
+           with fingerprint 'ID'.  If the server already haves a different
+           ID, raise MismatchedID."""
+        if self.cache is None: self.load()
+
+        lcnickname = nickname.lower()
+        self.dirty = 1
+        old = self.cache.get(lcnickname)
+        if old and old != ID:
+            raise MismatchedID()
+        self.cache[lcnickname] = ID
+
+    def insertServer(self, server):
+        """Record the identity key of ServerInfo 'server'.  If another
+           server with the same nickname and a different identity key is
+           already known, raise MismatchedID."""
+        nickname = server.getNickname()
+        ID = getIDFingerprint(server)
+        self.insertID(nickname, ID)
+
+    def flush(self):
+        """If any entries in the cache are new, write the cache to disk."""
+        if self.dirty:
+            self.save()
+
+    def load(self):
+        """Re-read the cache from disk."""
+        if not os.path.exists(self.location):
+            LOG.info("No ID cache; will create")
+            self.cache = {}
             return
-        if now is None:
-            now = time.time()
-        date = formatTime(now,localtime=1)
-        f = open(self._fname_base, 'a+')
         try:
-            f.seek(-1, 2)
-            nl = (f.read(1) == '\n')
-            if not nl: f.write("\n")
-            f.write("#   Added %s [GMT]:\n"%formatTime(now))
-            for name, fp in lst:
-                f.write("#abstain %s %s\n"%(name, fp))
-                self.haveComment.setdefault(fp, []).append(
-                    binascii.b2a_hex(fp))
-        finally:
-            f.close()
+            obj = readPickled(self.location)
+            # Pass pickling error
+        except OSError, e:
+            raise MixError("Cache exists, but cannot read cache: %s" % e)
+        if len(obj) != 2:
+            raise MixFatalError("Corrupt ID cache")
+
+        typecode, data = obj
+        if typecode != 'V0':
+            raise MixFatalError("Unrecognized version on ID cache.")
+
+        self.cache = data
 
     def save(self):
-        mixminion.Filestore.PickleCache.save(self, 0640)
-        if self.uid is not None and self.gid is not None:
-            _set_uid_gid_mode(self._fname_cache, self.uid, self.gid, 0640)
-            _set_uid_gid_mode(self._fname_base,  self.uid, self.gid, 0640)
+        """Write the cache to disk."""
+        if self.cache is None:
+            return
+        writePickled(self.location,
+                     ("V0", self.cache),
+                     0640)
+        if self.postSave:
+            self.postSave()
+        self.dirty = 0
 
-    def getStatus(self, fingerprint, nickname):
-        try:
-            vote, nick = self.status[_normalizeFingerprint(fingerprint)]
-        except KeyError:
-            return "unknown"
+def getIDFingerprint(server):
+    """Given a ServerInfo, return the fingerprint of its identity key.
 
-        if vote == 'yes' and nickname.lower() != nick.lower():
-            return "mismatch"
-
-        return vote
-
-    def getServerStatus(self, server):
-        # status + 'unknown' + 'mismatch'
-        return self.getStatus(server.getIdentityFingerprint(),
-                              server.getNickname())
+       We compute fingerprints by taking the ASN.1 encoding of the key,
+       then taking the SHA1 hash of the encoding."""
+    ident = server.getIdentity()
+    return mixminion.Crypto.sha1(
+        mixminion.Crypto.pk_encode_public_key(ident))
 
 def _set_uid_gid_mode(fn, uid, gid, mode):
     """Change the permissions on the file named 'fname', so that fname
@@ -356,6 +351,3 @@ def _set_uid_gid_mode(fn, uid, gid, mode):
         os.chown(fn, uid, gid)
     if (st[stat.ST_MODE] & 0777) != mode:
         os.chmod(fn, mode)
-
-def _normalizeFingerprint(fingerprint):
-    return fingerprint.replace(" ", "").upper()

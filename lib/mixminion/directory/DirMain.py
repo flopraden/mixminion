@@ -12,8 +12,7 @@ import os
 import shutil
 import sys
 import time
-from mixminion.Common import createPrivateDir, formatTime, iterFileLines, LOG, \
-     UIError
+from mixminion.Common import createPrivateDir, formatTime, LOG, UIError
 from mixminion.Config import ConfigError
 from mixminion.Crypto import init_crypto, pk_fingerprint, pk_generate, \
      pk_PEM_load, pk_PEM_save
@@ -144,7 +143,7 @@ def cmd_generate(args):
             print "No such file %r; skipping" %fn
             continue
         f = open(fn, 'r')
-        for ln in iterFileLines(f):
+        for ln in f.readlines():
             ln = ln.strip()
             if ln and ln[0] != '#':
                 badServers.append(ln)

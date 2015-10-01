@@ -1,4 +1,4 @@
-# Copyright 2003-2011 Nick Mathewson.  See LICENSE for licensing information.
+# Copyright 2011 Nick Mathewson.  See LICENSE for licensing information.
 
 """mixminion.directory.DirCGI
 
@@ -7,7 +7,6 @@
 
 __all__ = [ ]
 
-# Edit this to the configured value "Homedir" in .mixminion_dir.cf
 DIRECTORY_BASE = "/home/nickm/src/MixminionDirectory"
 
 import cgi
