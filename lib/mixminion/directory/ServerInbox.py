@@ -1,4 +1,4 @@
-# Copyright 2011 Nick Mathewson.  See LICENSE for licensing information.
+# Copyright 2003-2011 Nick Mathewson.  See LICENSE for licensing information.
 
 """mixminion.directory.ServerInbox
 
