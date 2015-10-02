@@ -48,7 +48,7 @@
    The restricted format is used for server descriptors.
    """
 
-__all__ = [ 'ConfigError', 'ClientConfig' ]
+__all__ = ['ConfigError', 'ClientConfig']
 
 import calendar
 import binascii
@@ -65,16 +65,18 @@ import mixminion.Crypto
 import mixminion.NetUtils
 
 from mixminion.Common import MixError, LOG, ceilDiv, englishSequence, \
-     formatBase64, isPrintingAscii, stripSpace, stringContains, UIError
+    formatBase64, isPrintingAscii, stripSpace, stringContains, UIError
+
 
 class ConfigError(MixError):
     """Thrown when an error is found in a configuration file."""
     pass
 
-#----------------------------------------------------------------------
-# Validation functions.  These are used to convert values as they appear
-# in configuration files and server descriptors into corresponding Python
-# objects, and validate their formats
+# ----------------------------------------------------------------------
+# Validation functions.  These are used to convert values as they appear in
+# configuration files and server descriptors into corresponding Python objects,
+# and validate their formats
+
 
 def _parseBoolean(boolean):
     """Entry validation function.  Converts a config value to a boolean.
@@ -87,13 +89,15 @@ def _parseBoolean(boolean):
     else:
         return 0
 
+
 def _parseSeverity(severity):
     """Validation function.  Converts a config value to a log severity.
        Raises ConfigError on failure."""
     s = severity.strip().upper()
-    if not mixminion.Common._SEVERITIES.has_key(s):
+    if s not in mixminion.Common._SEVERITIES:
         raise ConfigError("Invalid log level %r" % (severity))
     return s
+
 
 def _parseServerMode(mode):
     """Validation function.  Converts a config value to a server mode
@@ -119,7 +123,13 @@ _seconds_per_unit = {
     'month':  60*60*24*30,    # These last two aren't quite right, but we
     'year':   60*60*24*365,   # don't need exactness.
     }
-_canonical_unit_names = { 'sec' : 'second', 'min': 'minute', 'mon' : 'month' }
+_canonical_unit_names = {
+    'sec': 'second',
+    'min': 'minute',
+    'mon': 'month',
+    }
+
+
 def _parseInterval(interval):
     """Validation function.  Converts a config value to an interval of time,
        returning a Duration object. Raises ConfigError on failure."""
@@ -134,7 +144,9 @@ def _parseInterval(interval):
         num = int(num)
     nsec = int(num * _seconds_per_unit[unit])
     return mixminion.Common.Duration(nsec,
-                    _canonical_unit_names.get(unit,unit), num)
+                                     _canonical_unit_names.get(unit, unit),
+                                     num)
+
 
 def _parseIntervalList(s):
     """Validation functions. Parse a list of comma-separated intervals
@@ -151,7 +163,7 @@ def _parseIntervalList(s):
             interval = int(_parseInterval(interval))
             duration = int(_parseInterval(duration))
             if interval < 1:
-                raise ConfigError("Repeated interval too small in %s"%s)
+                raise ConfigError("Repeated interval too small in %s" % s)
 
             ilist += [interval] * ceilDiv(duration, interval)
         elif item.startswith("every "):
@@ -163,36 +175,40 @@ def _parseIntervalList(s):
             ilist.append(interval)
     return ilist
 
+
 def _unparseIntervalList(lst):
     """Helper function: given an interval list, converts it back to the
        expected format."""
     if lst == []:
         return ""
-    r = [ (lst[0], 1) ]
+    r = [(lst[0], 1)]
     for dur in lst[1:]:
         if dur == r[-1][0]:
             r[-1] = (dur, r[-1][1]+1)
         else:
-            r.append((dur,1))
+            r.append((dur, 1))
     result = []
     for dur, reps in r:
         d = mixminion.Common.Duration(dur)
         t = mixminion.Common.Duration(dur*reps)
         d.reduce()
         t.reduce()
-        if reps>1:
-            result.append("every %s for %s"%(d,t))
+        if reps > 1:
+            result.append("every %s for %s" % (d, t))
         else:
             result.append(str(d))
     return ", ".join(result)
 
+
 def _parseList(s):
     """Validation function.  Parse a comma-separated list of strings."""
-    return [ item.strip() for item in s.split(",") ]
+    return [item.strip() for item in s.split(",")]
+
 
 def _parseSeq(s):
     """Validation function.  Parse a space-separated list of strings."""
-    return [ item.strip() for item in s.split() ]
+    return [item.strip() for item in s.split()]
+
 
 def _parseInt(integer):
     """Validation function.  Converts a config value to an int.
@@ -205,16 +221,19 @@ def _parseInt(integer):
 
 # regular expression to match a size.
 _size_re = re.compile(r'^(\d+\.?\d*|\.\d+)\s*(k|kb|m|mb|b|byte|octet|)s?')
-_size_name_map = { '' : 1L, 'b' : 1L, 'byte' : 1L, 'octet' : 1L,
-                   'k' : 1L<<10, 'kb' : 1L<<10,
-                   'm' : 1L<<20, 'mb' : 1L<<20,
-                   'g' : 1L<<30, 'gb' : 1L<<30 }
+_size_name_map = {'': 1L, 'b': 1L, 'byte': 1L, 'octet': 1L,
+                  'k': 1L << 10, 'kb': 1L << 10,
+                  'm': 1L << 20, 'mb': 1L << 20,
+                  'g': 1L << 30, 'gb': 1L << 30}
+
+
 def _parseSize(size):
     """Validation function.  Converts a config value to a size in octets.
        Raises ConfigError on failure."""
     s = size.strip().lower()
     m = _size_re.match(s)
-    if not m: raise ConfigError("Invalid size %r"%size)
+    if not m:
+        raise ConfigError("Invalid size %r" % size)
     val = m.group(1)
     unit = _size_name_map[m.group(2)]
     if '.' in val:
@@ -222,16 +241,18 @@ def _parseSize(size):
     else:
         return long(val)*unit
 
+
 def _unparseSize(size):
     names = ["b", "KB", "MB", "GB"]
     idx = 0
     while 1:
-        if (size & 1023)!=0 or names[idx] == "GB":
-            return "%s %s"%(size,names[idx])
+        if (size & 1023) != 0 or names[idx] == "GB":
+            return "%s %s" % (size, names[idx])
         else:
             idx += 1
             size >>= 10
-    raise AssertionError # unreached
+    raise AssertionError  # unreached
+
 
 def _parseIP(ip):
     """Validation function.  Converts a config value to an IP address.
@@ -241,6 +262,7 @@ def _parseIP(ip):
     except ValueError, e:
         raise ConfigError(str(e))
 
+
 def _parseIP6(ip6):
     """Validation function.  Converts a config value to an IP address.
        Raises ConfigError on failure."""
@@ -249,12 +271,13 @@ def _parseIP6(ip6):
     except ValueError, e:
         raise ConfigError(str(e))
 
+
 def _parseHost(host):
     """Validation function.  Checks a config value as a valid hostname.
        Raises ConfigError on failure."""
     host = host.strip()
     if not mixminion.Common.isPlausibleHostname(host):
-        raise ConfigError("%r doesn't look like a valid hostname"%host)
+        raise ConfigError("%r doesn't look like a valid hostname" % host)
     return host
 
 # Regular expression to match 'address sets' as used in Allow/Deny
@@ -264,7 +287,9 @@ _address_set_re = re.compile(r'''^(\d+\.\d+\.\d+\.\d+|\*)
                                  (?:/\s*(\d+\.\d+\.\d+\.\d+))?\s*
                                  (?:(\d+)\s*
                                            (?:-\s*(\d+))?
-                                        )?$''',re.X)
+                                        )?$''', re.X)
+
+
 def _parseAddressSet_allow(s, allowMode=1):
     """Validation function.  Converts an address set string of the form
        'IP/mask port-port' into a tuple of (IP, Mask, Portmin, Portmax).
@@ -275,9 +300,9 @@ def _parseAddressSet_allow(s, allowMode=1):
         raise ConfigError("Misformatted address rule %r" % s)
     ip, mask, port, porthi = m.groups()
     if ip == '*':
-        if mask != None:
+        if mask is not None:
             raise ConfigError("Misformatted address rule %r" % s)
-        ip,mask = '0.0.0.0','0.0.0.0'
+        ip, mask = '0.0.0.0', '0.0.0.0'
     else:
         ip = _parseIP(ip)
     if mask:
@@ -291,7 +316,7 @@ def _parseAddressSet_allow(s, allowMode=1):
         else:
             porthi = port
         if not 1 <= port <= porthi <= 65535:
-            raise ConfigError("Invalid port range %s-%s" %(port,porthi))
+            raise ConfigError("Invalid port range %s-%s" % (port, porthi))
     elif allowMode:
         port = porthi = 48099
     else:
@@ -299,21 +324,24 @@ def _parseAddressSet_allow(s, allowMode=1):
 
     return (ip, mask, port, porthi)
 
+
 def _parseAddressSet_deny(s):
-    return _parseAddressSet_allow(s,0)
+    return _parseAddressSet_allow(s, 0)
+
 
 def _parseEmail(s):
     s = s.strip()
     if not mixminion.Common.isSMTPMailbox(s):
-        raise ConfigError("%r is not a valid email address."%s)
+        raise ConfigError("%r is not a valid email address." % s)
     return s
+
 
 def _parseCommand(command):
     """Validation function.  Converts a config value to a shell command of
        the form (fname, optionslist). Raises ConfigError on failure."""
     c = command.strip().split()
     if not c:
-        raise ConfigError("Invalid command %r" %command)
+        raise ConfigError("Invalid command %r" % command)
     cmd, opts = c[0], c[1:]
     if os.path.isabs(cmd):
         if not os.path.exists(cmd):
@@ -328,9 +356,10 @@ def _parseCommand(command):
             if os.path.exists(c):
                 return c, opts
 
-        raise ConfigError("No match found for command %r" %cmd)
+        raise ConfigError("No match found for command %r" % cmd)
 
-def _parseBase64(s,_hexmode=0):
+
+def _parseBase64(s, _hexmode=0):
     """Validation function.  Converts a base-64 encoded config value into
        its original. Raises ConfigError on failure."""
     try:
@@ -345,10 +374,12 @@ def _parseBase64(s,_hexmode=0):
         else:
             raise ConfigError("Invalid Base64 data")
 
+
 def _parseHex(s):
     """Validation function.  Converts a hex-64 encoded config value into
        its original. Raises ConfigError on failure."""
-    return _parseBase64(s,1)
+    return _parseBase64(s, 1)
+
 
 def _parsePublicKey(s):
     """Validate function.  Converts a Base-64 encoding of an ASN.1
@@ -369,26 +400,30 @@ def _parsePublicKey(s):
 # FFFF008 since 0.0.6.
 # Regular expression to match YYYY/MM/DD or YYYY-MM-DD
 _date_re = re.compile(r"^(\d\d\d\d)([/-])(\d\d)([/-])(\d\d)$")
+
+
 def _parseDate(s):
     """Validation function.  Converts from YYYY-MM-DD or YYYY/MM/DD
        format to a (long) time value for midnight on that date."""
     m = _date_re.match(s.strip())
     if not m or m.group(2) != m.group(4):
-        raise ConfigError("Invalid date %r"%s)
+        raise ConfigError("Invalid date %r" % s)
     try:
         yyyy = int(m.group(1))
         MM = int(m.group(3))
         dd = int(m.group(5))
-    except (ValueError,AttributeError):
-        raise ConfigError("Invalid date %r"%s)
+    except (ValueError, AttributeError):
+        raise ConfigError("Invalid date %r" % s)
     if not ((1 <= dd <= 31) and (1 <= MM <= 12) and
             (1970 <= yyyy)):
-        raise ConfigError("Invalid date %r"%s)
-    return calendar.timegm((yyyy,MM,dd,0,0,0,0,0,0))
+        raise ConfigError("Invalid date %r" % s)
+    return calendar.timegm((yyyy, MM, dd, 0, 0, 0, 0, 0, 0))
 
 # Regular expression to match YYYY-MM-DD HH:MM:SS
 _time_re = re.compile(r"^(\d\d\d\d)-(\d\d)-(\d\d)\s+"
                       r"(\d\d):(\d\d):(\d\d)((?:\.\d\d\d)?)$")
+
+
 def _parseTime(s):
     """Validation function.  Converts from YYYY-MM-DD HH:MM:SS format
        to a (float) time value for GMT."""
@@ -408,19 +443,21 @@ def _parseTime(s):
         fsec = 0.0
 
     if not ((1 <= dd <= 31) and (1 <= MM <= 12) and
-            (1970 <= yyyy)  and (0 <= hh < 24) and
-            (0 <= mm < 60)  and (0 <= ss <= 61)):
+            (1970 <= yyyy) and (0 <= hh < 24) and
+            (0 <= mm < 60) and (0 <= ss <= 61)):
         raise ConfigError("Invalid time %r" % s)
 
-    return calendar.timegm((yyyy,MM,dd,hh,mm,ss,0,0,0))+fsec
+    return calendar.timegm((yyyy, MM, dd, hh, mm, ss, 0, 0, 0)) + fsec
 
-_NICKNAME_CHARS = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"+
-                   "abcdefghijklmnopqrstuvwxyz"+
+_NICKNAME_CHARS = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+                   "abcdefghijklmnopqrstuvwxyz" +
                    "0123456789-")
-_NICKNAME_INITIAL_CHARS = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"+
+_NICKNAME_INITIAL_CHARS = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
                            "abcdefghijklmnopqrstuvwxyz")
 
 MAX_NICKNAME = 24
+
+
 def _parseNickname(s):
     """Validation function.  Returns true iff s contains a valid
        server nickname -- that is, a string of 1..128 characters,
@@ -430,14 +467,15 @@ def _parseNickname(s):
     s = s.strip()
     bad = s.translate(mixminion.Common._ALLCHARS, _NICKNAME_CHARS)
     if len(bad):
-        raise ConfigError("Invalid characters %r in nickname %r" % (bad,s))
+        raise ConfigError("Invalid characters %r in nickname %r" % (bad, s))
     if len(s) > MAX_NICKNAME:
         raise ConfigError("Nickname is too long")
     elif len(s) == 0:
         raise ConfigError("Nickname is too short")
     elif s[0] not in _NICKNAME_INITIAL_CHARS:
-        raise ConfigError("Nickname begins with invalid character %r" %s[0])
+        raise ConfigError("Nickname begins with invalid character %r" % s[0])
     return s
+
 
 def _parseFilename(s):
     """Validation function.  Matches a filename, expanding tildes as
@@ -450,18 +488,19 @@ def _parseFilename(s):
 
     return os.path.expanduser(s)
 
+
 def _parseUser(s):
     """Validation function.  Matches a username or UID.  Returns a UID."""
     s = s.strip()
     try:
         return pwd.getpwnam(s)[2]
-    except (KeyError,AttributeError):
+    except (KeyError, AttributeError):
         try:
             return _parseInt(s)
         except ConfigError:
-            raise ConfigError("Expected a user name or UID, but got %r"%s)
+            raise ConfigError("Expected a user name or UID, but got %r" % s)
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 # Regular expression to match a section header.
 _section_re = re.compile(r'\[\s*([^\s\]]+)\s*\]')
@@ -469,6 +508,7 @@ _section_re = re.compile(r'\[\s*([^\s\]]+)\s*\]')
 _entry_re = re.compile(r'([^:= \t]+)(?:\s*[:=]|[ \t])\s*(.*)')
 # Regular expression to match bogus line endings.
 _abnormal_line_ending_re = re.compile(r'\r\n?')
+
 
 def _readConfigFile(contents):
     """Helper function. Given the string contents of a configuration
@@ -504,23 +544,24 @@ def _readConfigFile(contents):
             try:
                 lastLine = curSection[-1]
                 curSection[-1] = (lastLine[0],
-                                  "%s %s" % (lastLine[1], line),lastLine[2])
+                                  "%s %s" % (lastLine[1], line), lastLine[2])
             except (IndexError, TypeError):
-                raise ConfigError("Unexpected indentation at line %s" %lineno)
+                raise ConfigError("Unexpected indentation at line %s" % lineno)
         elif line[0] == '[':
             m = _section_re.match(line)
-            curSection = [ ]
-            sections.append( (m.group(1), curSection) )
+            curSection = []
+            sections.append((m.group(1), curSection))
         else:
             m = _entry_re.match(line)
             if not m:
-                raise ConfigError("Bad entry at line %s"%lineno)
+                raise ConfigError("Bad entry at line %s" % lineno)
             try:
-                curSection.append( (m.group(1), m.group(2), lineno) )
+                curSection.append((m.group(1), m.group(2), lineno))
             except AttributeError:
                 raise ConfigError("Unknown section at line %s" % lineno)
 
     return sections
+
 
 def _readRestrictedConfigFile(contents):
     """Same interface as _readConfigFile, but only supports the restrictd
@@ -547,19 +588,20 @@ def _readRestrictedConfigFile(contents):
         lineno += 1
         line = line.strip()
         if line == '' or line[0] == '#':
-            raise ConfigError("Empty line not allowed at line %s"%lineno)
+            raise ConfigError("Empty line not allowed at line %s" % lineno)
         elif line[0] == '[':
             m = _section_re.match(line)
             if not m:
-                raise ConfigError("Bad section declaration at line %s"%lineno)
-            curSection = [ ]
-            sections.append( (m.group(1), curSection) )
+                raise ConfigError("Bad section declaration at line %s"
+                                  % lineno)
+            curSection = []
+            sections.append((m.group(1), curSection))
         else:
             colonIdx = line.find(':')
             if colonIdx >= 1:
                 try:
-                    curSection.append( (line[:colonIdx].strip(),
-                                        line[colonIdx+1:].strip(), lineno) )
+                    curSection.append((line[:colonIdx].strip(),
+                                       line[colonIdx+1:].strip(), lineno))
                 except AttributeError:
                     raise ConfigError("Unknown section at line %s" % lineno)
             else:
@@ -567,30 +609,32 @@ def _readRestrictedConfigFile(contents):
 
     return sections
 
-def _formatEntry(key,val,w=79,ind=4,strict=0):
+
+def _formatEntry(key, val, w=79, ind=4, strict=0):
     """Helper function.  Given a key/value pair, returns a NL-terminated
        entry for inclusion in a configuration file, such that no line is
        avoidably longer than 'w' characters, and with continuation lines
        indented by 'ind' spaces.
     """
-    if strict or len(str(val))+len(key)+2 <= 79:
-        return "%s: %s\n" % (key,val)
+    if strict or len(str(val)) + len(key) + 2 <= 79:
+        return "%s: %s\n" % (key, val)
 
-    ind_s = " "*(ind-1)
-    lines = [  ]
-    linecontents = [ "%s:" % key ]
+    ind_s = " " * (ind - 1)
+    lines = []
+    linecontents = ["%s:" % key]
     linelength = len(linecontents[0])
     for v in val.split(" "):
-        if linelength+1+len(v) <= w:
+        if linelength + 1 + len(v) <= w:
             linecontents.append(v)
             linelength += 1+len(v)
         else:
             lines.append(" ".join(linecontents))
-            linecontents = [ ind_s, v ]
+            linecontents = [ind_s, v]
             linelength = ind+len(v)
     lines.append(" ".join(linecontents))
-    lines.append("") # so the last line ends with \n
+    lines.append("")  # so the last line ends with \n
     return "\n".join(lines)
+
 
 def resolveFeatureName(name, klass):
     """Given a feature name and a subclass of _ConfigFile, check whether
@@ -609,7 +653,7 @@ def resolveFeatureName(name, klass):
        """
     syn = klass._syntax
     name = name.lower()
-    if klass._features.has_key(name):
+    if name in klass._features:
         return "-", name
     elif ':' in name:
         idx = name.index(':')
@@ -622,26 +666,27 @@ def resolveFeatureName(name, klass):
                     if entry.lower() == ent:
                         return section, entry
         if goodSection:
-            raise UIError("Section %s has no entry %r"%(goodSection,ent))
+            raise UIError("Section %s has no entry %r" % (goodSection, ent))
         else:
-            raise UIError("No such section as %s"%sec)
+            raise UIError("No such section as %s" % sec)
     else:
-        result =  []
+        result = []
         for secname, secitems in syn.items():
             if secname.lower() == name:
-                raise UIError("No key given for section %s"%secname)
+                raise UIError("No key given for section %s" % secname)
             for entname in secitems.keys():
                 if entname.lower() == name:
                     result.append((secname, entname))
         if len(result) == 0:
-            raise UIError("No key named %r found"%name)
+            raise UIError("No key named %r found" % name)
         elif len(result) > 1:
-            secs = [ "%s:%s"%(secname,entname) for secname,entname
-                     in result ]
-            raise UIError("%r is ambiguous.  Did you mean %s?"%(
-                          name, englishSequence(secs,compound="or")))
+            secs = ["%s:%s" % (secname, entname) for secname, entname
+                    in result]
+            raise UIError("%r is ambiguous.  Did you mean %s?" % (
+                          name, englishSequence(secs, compound="or")))
         else:
             return result[0]
+
 
 def getFeatureList(klass):
     """Get a list of all feature names from the _ConfigFile subclass
@@ -651,12 +696,13 @@ def getFeatureList(klass):
     features = []
     for secname, secitems in syn.items():
         for entname in secitems.keys():
-            if entname.startswith("__"): continue
+            if entname.startswith("__"):
+                continue
             synonyms = []
-            synonyms.append("%s:%s"%(secname,entname))
+            synonyms.append("%s:%s" % (secname, entname))
             unique = 1
             for sn, si in syn.items():
-                if sn != secname and si.has_key(entname):
+                if sn != secname and entname in si:
                     unique = 0
                     break
             if unique:
@@ -665,10 +711,11 @@ def getFeatureList(klass):
     features.sort()
     return features
 
+
 class _ConfigFile:
     """Base class to parse, validate, and represent configuration files.
     """
-    ##Fields:
+    # Fields:
     #  fname: Name of the underlying file.  Used by .reload()
     #  _sections: A map from secname->key->value.
     #  _sectionEntries: A  map from secname->[ (key, value) ] inorder.
@@ -692,7 +739,7 @@ class _ConfigFile:
     #     _features is a map from lowercase feature name to 1 for
     #         features that should be handled by getFeature.
 
-    ## Validation rules:
+    # Validation rules:
     # A key without a corresponding entry in _syntax gives an error.
     # A section without a corresponding entry is ignored.
     # ALLOW* and REQUIRE* permit multiple entries with for a given key:
@@ -705,30 +752,30 @@ class _ConfigFile:
     #   will be set to None.
 
     CODING_FNS = {
-        "boolean" :  (_parseBoolean, lambda b: b and "yes" or "no"),
-        "severity" : (_parseSeverity, str),
-        "serverMode"  : (_parseServerMode, str),
-        "interval" : (_parseInterval, str),
-        "intervalList" : (_parseIntervalList, _unparseIntervalList),
-        "int" : (_parseInt, str),
-        "size" : (_parseSize, _unparseSize),
-        "IP" : (_parseIP, str),
-        "IP6" : (_parseIP6, str),
-        "host" : (_parseHost, str),
-        "list" : (_parseList, ",".join),
-        "seq" : (_parseSeq, " ".join),
-        "addressSet_allow" : (_parseAddressSet_allow, str), #XXXX
-        "addressSet_deny" : (_parseAddressSet_deny, str), #XXXX
-        "command" : (_parseCommand, lambda c,o: " ".join([c," ".join(o)])),
-        "base64" : (_parseBase64, mixminion.Common.formatBase64),
-        "hex" : (_parseHex, binascii.b2a_hex),
-        "publicKey" : (_parsePublicKey, lambda r: "<public key>"),
-        "date" : (_parseDate, mixminion.Common.formatDate),
-        "time" : (_parseTime, mixminion.Common.formatTime),
-        "nickname" : (_parseNickname, str),
-        "filename" : (_parseFilename, str),
-        "user" : (_parseUser, str),
-        "email" : (_parseEmail, str),
+        "boolean":  (_parseBoolean, lambda b: b and "yes" or "no"),
+        "severity": (_parseSeverity, str),
+        "serverMode": (_parseServerMode, str),
+        "interval": (_parseInterval, str),
+        "intervalList": (_parseIntervalList, _unparseIntervalList),
+        "int": (_parseInt, str),
+        "size": (_parseSize, _unparseSize),
+        "IP": (_parseIP, str),
+        "IP6": (_parseIP6, str),
+        "host": (_parseHost, str),
+        "list": (_parseList, ",".join),
+        "seq": (_parseSeq, " ".join),
+        "addressSet_allow": (_parseAddressSet_allow, str),  # XXXX
+        "addressSet_deny": (_parseAddressSet_deny, str),  # XXXX
+        "command": (_parseCommand, lambda c, o: " ".join([c, " ".join(o)])),
+        "base64": (_parseBase64, mixminion.Common.formatBase64),
+        "hex": (_parseHex, binascii.b2a_hex),
+        "publicKey": (_parsePublicKey, lambda r: "<public key>"),
+        "date": (_parseDate, mixminion.Common.formatDate),
+        "time": (_parseTime, mixminion.Common.formatTime),
+        "nickname": (_parseNickname, str),
+        "filename": (_parseFilename, str),
+        "user": (_parseUser, str),
+        "email": (_parseEmail, str),
         }
 
     _syntax = None
@@ -783,8 +830,8 @@ class _ConfigFile:
         for secName, secEntries in sections:
             self._sectionNames.append(secName)
 
-            if self._sections.has_key(secName):
-                raise ConfigError("Duplicate section [%s]" %secName)
+            if secName in self._sections:
+                raise ConfigError("Duplicate section [%s]" % secName)
 
             section = {}
             sectionEntries = []
@@ -798,52 +845,52 @@ class _ConfigFile:
             if not secConfig:
                 if self._restrictSections:
                     raise ConfigError("Skipping unrecognized section %s"
-                                      %secName)
+                                      % secName)
                 else:
                     LOG.warn("Skipping unrecognized section %s", secName)
                     continue
 
             # Set entries from the section, searching for bad entries
             # as we go.
-            for k,v,line in secEntries:
+            for k, v, line in secEntries:
                 try:
                     rule, parseType, default = secConfig[k]
                 except KeyError:
-                    msg = "Unrecognized key %s on line %s"%(k,line)
-                    acceptedIn = [ sn for sn,sc in self._syntax.items()
-                                   if sc.has_key(k) ]
+                    msg = "Unrecognized key %s on line %s" % (k, line)
+                    acceptedIn = [sn for sn, sc in self._syntax.items()
+                                  if k in sc]
                     acceptedIn.sort()
                     if acceptedIn:
-                        msg += ". This key belongs in %s, but appears in %s."%(
-                            englishSequence(acceptedIn, compound="or"),
-                            secName)
+                        msg += (". This key belongs in %s, "
+                                % englishSequence(acceptedIn, compound="or"))
+                        msg += "but appears in %s." % secName
                     if self._restrictKeys:
                         raise ConfigError(msg)
                     else:
                         LOG.warn(msg)
                         continue
 
-                parseFn, _ = self.CODING_FNS.get(parseType,(None,None))
+                parseFn, _ = self.CODING_FNS.get(parseType, (None, None))
 
                 # Parse and validate the value of this entry.
                 if parseFn is not None:
                     try:
                         v = parseFn(v)
                     except ConfigError, e:
-                        e.args = ("%s at line %s" %(e.args[0],line))
+                        e.args = ("%s at line %s" % (e.args[0], line))
                         raise e
 
-                sectionEntries.append( (k,v) )
+                sectionEntries.append((k, v))
                 entryLines.append(line)
 
                 # Insert the entry, checking for impermissible duplicates.
                 if rule in ('REQUIRE', 'ALLOW'):
-                    if section.has_key(k):
+                    if k in section:
                         raise ConfigError("Duplicate entry for %s at line %s"
                                           % (k, line))
                     else:
                         section[k] = v
-                elif rule in ('REQUIRE*','ALLOW*'):
+                elif rule in ('REQUIRE*', 'ALLOW*'):
                     try:
                         section[k].append(v)
                     except KeyError:
@@ -857,12 +904,13 @@ class _ConfigFile:
             for k, (rule, parseType, default) in secConfig.items():
                 if k == '__SECTION__' or rule == 'IGNORE':
                     continue
-                elif not section.has_key(k):
+                elif k not in section:
                     if rule in ('REQUIRE', 'REQUIRE*'):
                         raise ConfigError("Missing entry %s from section %s"
                                           % (k, secName))
                     else:
-                        parseFn, _ = self.CODING_FNS.get(parseType,(None,None))
+                        parseFn, _ = self.CODING_FNS.get(parseType,
+                                                         (None, None))
                         if parseFn is None or default is None:
                             if rule == 'ALLOW*':
                                 section[k] = []
@@ -872,7 +920,7 @@ class _ConfigFile:
                             section[k] = parseFn(default)
                         else:
                             assert rule == 'ALLOW*'
-                            section[k] = map(parseFn,default)
+                            section[k] = map(parseFn, default)
 
             cb = self._callbacks.get(secName)
             if cb:
@@ -881,11 +929,11 @@ class _ConfigFile:
         # Check for missing required sections, setting any missing
         # allowed sections to {}.
         for secName, secConfig in self._syntax.items():
-            secRule = secConfig.get('__SECTION__', ('ALLOW',None,None))
+            secRule = secConfig.get('__SECTION__', ('ALLOW', None, None))
             if (secRule[0] == 'REQUIRE'
-                and not self._sections.has_key(secName)):
-                raise ConfigError("Section [%s] not found." %secName)
-            elif not self._sections.has_key(secName):
+                    and secName not in self._sections):
+                raise ConfigError("Section [%s] not found." % secName)
+            elif secName not in self._sections:
                 self._sections[secName] = {}
                 self._sectionEntries[secName] = []
 
@@ -906,12 +954,12 @@ class _ConfigFile:
         """
         return contents
 
-    def getFeature(self,sec,name):
+    def getFeature(self, sec, name):
         """Given a sec/name pair returned by resolveFeatureName, return a
            string value of that feature for the class."""
-        assert sec not in ("+","-")
+        assert sec not in ("+", "-")
         parseType = self._syntax[sec].get(name)[1]
-        _, unparseFn = self.CODING_FNS.get(parseType, (None,str))
+        _, unparseFn = self.CODING_FNS.get(parseType, (None, str))
         try:
             v = self[sec][name]
         except KeyError:
@@ -933,12 +981,13 @@ class _ConfigFile:
     def get(self, sec, val="---"):
         """Return a section named sec, if any such section exists.  Otherwise
            return an empty dict, or 'val' if provided."""
-        if val == "---": val = {}
+        if val == "---":
+            val = {}
         return self._sections.get(sec, val)
 
     def has_section(self, sec):
         """Return true if this config object allows a section named 'sec'."""
-        return self._sections.has_key(sec)
+        return sec in self._sections
 
     def getSectionItems(self, sec):
         """Return a list of ordered (key,value) tuples for a given section.
@@ -950,12 +999,12 @@ class _ConfigFile:
            file."""
         lines = []
         for s in self._sectionNames:
-            lines.append("[%s]\n"%s)
-            for k,v in self._sectionEntries[s]:
+            lines.append("[%s]\n" % s)
+            for k, v in self._sectionEntries[s]:
                 tp = self._syntax[s][k][1]
                 if tp:
                     v = self.CODING_FNS[tp][1](v)
-                lines.append(_formatEntry(k,v,strict=self._restrictFormat))
+                lines.append(_formatEntry(k, v, strict=self._restrictFormat))
             if not self._restrictFormat:
                 lines.append("\n")
 
@@ -970,40 +1019,48 @@ else:
     # Unix prefers to put configuration in hidden directories in your homedir.
     DEFAULT_USER_DIR = "~/.mixminion"
 
+
 class ClientConfig(_ConfigFile):
-    #XXXX Should this go into ClientUtils or something?
+    # XXXX Should this go into ClientUtils or something?
     _restrictFormat = 0
     _restrictKeys = _restrictSections = 1
     _syntax = {
-        'Host' : { '__SECTION__' : ('ALLOW', None, None),
-                   'ShredCommand': ('ALLOW', "command", None),
-                   'EntropySource': ('ALLOW', "filename", "/dev/urandom"),
-                   'TrustedUser': ('ALLOW*', "user", None),
-                   'FileParanoia': ('ALLOW', "boolean", "yes"),
-                   },
-        'DirectoryServers' :
-                   { '__SECTION__' : ('ALLOW', None, None),
-                     'ServerURL' : ('ALLOW*', None, None),
-                     'MaxSkew' : ('ALLOW', "interval", "10 minutes"),
-                     'DirectoryTimeout' : ('ALLOW', "interval", "1 minute"),
-                     'AllowOldDirectoryFormat': ("ALLOW", 'boolean', 'true') },
-        'User' : { 'UserDir' : ('ALLOW', "filename", DEFAULT_USER_DIR) },
-        'Security' : { 'SURBAddress' : ('ALLOW', None, None),
-                       'SURBLifetime' : ('ALLOW', "interval", "7 days"),
-                       'ForwardPath' : ('ALLOW', None, "~5"),
-                       'ReplyPath' : ('ALLOW', None, "~5"),
-                       'SURBPath' : ('ALLOW', None, "~5"),
-                       'BlockServers' : ('ALLOW*', 'list', ""),
-                       'BlockEntries' : ('ALLOW*', 'list', ""),
-                       'BlockExits' : ('ALLOW*', 'list', ""),
-                       #XXXX008; remove these; they've been disabled since 007
-                       'PathLength' : ('ALLOW', None, None),
-                       'SURBPathLength' : ('ALLOW', None, None),
-                       },
-        'Network' : { 'ConnectionTimeout' : ('ALLOW', "interval", None),
-                      'Timeout' : ('ALLOW', "interval", None) }
+        'Host':
+            {'__SECTION__': ('ALLOW', None, None),
+             'ShredCommand': ('ALLOW', "command", None),
+             'EntropySource': ('ALLOW', "filename", "/dev/urandom"),
+             'TrustedUser': ('ALLOW*', "user", None),
+             'FileParanoia': ('ALLOW', "boolean", "yes"),
+             },
+        'DirectoryServers':
+            {'__SECTION__': ('ALLOW', None, None),
+             'ServerURL': ('ALLOW*', None, None),
+             'MaxSkew': ('ALLOW', "interval", "10 minutes"),
+             'DirectoryTimeout': ('ALLOW', "interval", "1 minute"),
+             'AllowOldDirectoryFormat': ("ALLOW", 'boolean', 'true')
+             },
+        'User':
+            {'UserDir': ('ALLOW', "filename", DEFAULT_USER_DIR)},
+        'Security':
+            {'SURBAddress': ('ALLOW', None, None),
+             'SURBLifetime': ('ALLOW', "interval", "7 days"),
+             'ForwardPath': ('ALLOW', None, "~5"),
+             'ReplyPath': ('ALLOW', None, "~5"),
+             'SURBPath': ('ALLOW', None, "~5"),
+             'BlockServers': ('ALLOW*', 'list', ""),
+             'BlockEntries': ('ALLOW*', 'list', ""),
+             'BlockExits': ('ALLOW*', 'list', ""),
+             # XXXX008; remove these; they've been disabled since 007
+             'PathLength': ('ALLOW', None, None),
+             'SURBPathLength': ('ALLOW', None, None),
+             },
+        'Network':
+            {'ConnectionTimeout': ('ALLOW', "interval", None),
+             'Timeout': ('ALLOW', "interval", None),
+             }
 
         }
+
     def __init__(self, fname=None, string=None):
         _ConfigFile.__init__(self, fname, string)
 
@@ -1017,7 +1074,9 @@ class ClientConfig(_ConfigFile):
             elif s == 'User':
                 foundUser = 1
         if foundServer and not foundUser:
-            raise ConfigError("Got a server configuration (mixminiond.conf), but expected a client configuration (.mixminionrc)")
+            raise ConfigError("Got a server configuration (mixminiond.conf),"
+                              " but expected a client configuration "
+                              "(.mixminionrc)")
 
         return contents
 
@@ -1026,31 +1085,33 @@ class ClientConfig(_ConfigFile):
 
         t = self['Network'].get('ConnectionTimeout')
         if t is not None:
-            LOG.warn("The ConnectionTimout option in your .mixminionrc is deprecated; use Timeout instead.")
+            LOG.warn("The ConnectionTimout option in your .mixminionrc is "
+                     "deprecated; use Timeout instead.")
         t = self.getTimeout()
         if int(t) < 5:
             LOG.warn("Very short network timeout")
         elif int(t) > 120:
             LOG.warn("Very long network timeout")
 
-        #XXXX008 safe to remove; has warned since 007rc2
+        # XXXX008 safe to remove; has warned since 007rc2
         security = self.get('Security', {})
         for deprecatedKey, altKey in [('PathLength', 'ForwardPath'),
                                       ('SURBPathLength', 'SURBPath')]:
-            if security.get(deprecatedKey,None) is not None:
+            if security.get(deprecatedKey, None) is not None:
                 v = security[deprecatedKey]
-                LOG.warn("The %s option in your .mixminionrc is no longer supported; use '%s: *%s' instead",
+                LOG.warn("The %s option in your .mixminionrc is no longer "
+                         "supported; use '%s: *%s' instead",
                          deprecatedKey, altKey, v)
 
     def getTimeout(self):
         """Return the network timeout in this configuration."""
-        network = self.get("Network",{})
+        network = self.get("Network", {})
         # The variable is now called 'Timeout'...
-        t = network.get("Timeout",None)
+        t = network.get("Timeout", None)
         if t is not None:
             return int(t)
         # ...but older code may call it 'ConnectionTimout'.
-        t = network.get("ConnectionTimeout",None)
+        t = network.get("ConnectionTimeout", None)
         if t is not None:
             return int(t)
         # ...default to 2 minutes.
@@ -1062,11 +1123,13 @@ class ClientConfig(_ConfigFile):
 
     def getUserDirectory(self):
         """Return the configured user directory."""
-        return os.path.expanduser(self["User"].get("UserDir",DEFAULT_USER_DIR))
+        return os.path.expanduser(self["User"].get("UserDir",
+                                  DEFAULT_USER_DIR))
 
     def getDirectoryRoot(self):
         """Return the location where mixminion should store its files."""
         return self.getUserDirectory()
+
 
 def _validateHostSection(sec):
     """Helper function: Makes sure that the shared [Host] section is correct;
@@ -1075,4 +1138,3 @@ def _validateHostSection(sec):
     # in configure_trng and configureShredCommand, respectively.
 
     # Host is checked in setupTrustedUIDs.
-
