@@ -230,8 +230,8 @@ def pk_encrypt(data, key):
     """Return the RSA encryption of OAEP-padded data, using the public key
        in key.
     """
-    bytes = key.get_modulus_bytes()
-    data = add_oaep(data, OAEP_PARAMETER, bytes)
+    b = key.get_modulus_bytes()
+    data = add_oaep(data, OAEP_PARAMETER, b)
     # public key encrypt
     return key.crypt(data, 1, 1)
 
@@ -239,8 +239,8 @@ def pk_encrypt(data, key):
 def pk_sign(data, key):
     """Return the RSA signature of OAEP-padded data, using the public key
        in key."""
-    bytes = key.get_modulus_bytes()
-    data = add_oaep(data, OAEP_PARAMETER, bytes)
+    b = key.get_modulus_bytes()
+    data = add_oaep(data, OAEP_PARAMETER, b)
     # private key encrypt
     return key.crypt(data, 0, 1)
 
@@ -249,20 +249,20 @@ def pk_decrypt(data, key):
     """Returns the unpadded RSA decryption of data, using the private key in
        key.
     """
-    bytes = key.get_modulus_bytes()
+    b = key.get_modulus_bytes()
     # private key decrypt
     data = key.crypt(data, 0, 0)
-    return check_oaep(data, OAEP_PARAMETER, bytes)
+    return check_oaep(data, OAEP_PARAMETER, b)
 
 
 def pk_check_signature(data, key):
     """If data holds the RSA signature of some OAEP-padded data, check the
        signature using public key 'key', and return the orignal data.
        Throw CryptoError on failure. """
-    bytes = key.get_modulus_bytes()
+    b = key.get_modulus_bytes()
     # private key decrypt
     data = key.crypt(data, 1, 0)
-    return check_oaep(data, OAEP_PARAMETER, bytes)
+    return check_oaep(data, OAEP_PARAMETER, b)
 
 
 def pk_generate(bits=1024, e=65537):
@@ -362,7 +362,7 @@ copy_reg.pickle(_ml.RSA, _pickle_rsa, _ml.rsa_decode_key)
 #       ftp://ftp.rsasecurity.com/pub/rsalabs/rsa_algorithm/rsa-oaep_spec.pdf)
 
 
-def _oaep_mgf(seed, bytes):
+def _oaep_mgf(seed, b):
     ''' Mask generation function specified for RSA-OAEP.  Given a seed
         and a number of bytes, generates a mask for OAEP by computing
         sha1(seed + "\x00\x00\x00\x00")+sha1(seed+"\x00\x00\x00\x01)+...
@@ -372,17 +372,17 @@ def _oaep_mgf(seed, bytes):
         LIMITATION: This implementation can only generate 5120 bytes of
         key material.'''
 
-    assert bytes <= 5120
+    assert b <= 5120
     padding = []
     nHashes = ceilDiv(bytes, DIGEST_LEN)
     # assert (nHashes-1)*DIGEST_LEN <= bytes <= nHashes*DIGEST_LEN
     padding = ([_ml.sha1("%s\x00\x00\x00%c"
                % (seed, i)) for i in range(nHashes)])
     padding = "".join(padding)
-    return padding[:bytes]
+    return padding[:b]
 
 
-def _add_oaep_padding(data, p, bytes, rng=None):
+def _add_oaep_padding(data, p, b, rng=None):
     '''Add oaep padding suitable for a 'bytes'-byte key, using 'p' as a
        security parameter and 'rng' as a random number generator.
 
@@ -390,21 +390,21 @@ def _add_oaep_padding(data, p, bytes, rng=None):
        be any length.  len(data) must be <= bytes-42.  '''
     if rng is None:
         rng = getCommonPRNG()
-    bytes = bytes-1
+    b = b - 1
     mLen = len(data)
-    paddingLen = bytes-mLen-2*DIGEST_LEN-1
+    paddingLen = b - mLen - 2 * DIGEST_LEN - 1
     if paddingLen < 0:
         raise CryptoError("Message too long")
     db = "%s%s\x01%s" % (sha1(p), "\x00"*paddingLen, data)
     seed = rng.getBytes(DIGEST_LEN)
-    maskedDB = _ml.strxor(db, _oaep_mgf(seed, bytes-DIGEST_LEN))
+    maskedDB = _ml.strxor(db, _oaep_mgf(seed, b - DIGEST_LEN))
     maskedSeed = _ml.strxor(seed, _oaep_mgf(maskedDB, DIGEST_LEN))
     return '\x00%s%s' % (maskedSeed, maskedDB)
 
 
-def _check_oaep_padding(data, p, bytes):
+def _check_oaep_padding(data, p, b):
     '''Checks the OAEP padding on a 'bytes'-byte string.'''
-    if len(data) != bytes:
+    if len(data) != b:
         raise CryptoError("Decoding error")
 
     # This test (though required in the OAEP spec) is extraneous here.
@@ -661,8 +661,8 @@ class RNG:
             flags |= getattr(os, 'O_BINARY', 0)
             mode = "wb"
         while 1:
-            bytes = self.getBytes(6)
-            base = binascii.b2a_base64(bytes).strip().replace("/", "-")
+            b = self.getBytes(6)
+            base = binascii.b2a_base64(b).strip().replace("/", "-")
             if FS_IS_CASEI:
                 base = base.lower()
             fname = os.path.join(dir, "%s%s" % (prefix, base))
