@@ -4,19 +4,19 @@
 
    Common functionality and utility code for Mixminion"""
 
-__all__ = [ 'IntervalSet', 'Lockfile', 'LockfileLocked', 'LOG', 'LogStream',
-            'MixError',
-            'MixFatalError', 'MixProtocolError', 'UIError', 'UsageError',
-            'armorText', 'ceilDiv', 'checkPrivateDir', 'checkPrivateFile',
-            'createPrivateDir', 'disp64',
-            'encodeBase64', 'englishSequence', 'floorDiv', 'formatBase64',
-            'formatDate', 'formatFnameDate', 'formatFnameTime', 'formatTime',
-            'installSIGCHLDHandler', 'isSMTPMailbox', 'iterFileLines',
-            'openUnique', 'parseFnameDate',
-            'previousMidnight', 'readFile', 'readPickled',
-            'readPossiblyGzippedFile', 'secureDelete', 'stringContains',
-            'succeedingMidnight', 'tryUnlink', 'unarmorText',
-            'waitForChildren', 'writeFile', 'writePickled' ]
+__all__ = ['IntervalSet', 'Lockfile', 'LockfileLocked', 'LOG', 'LogStream',
+           'MixError',
+           'MixFatalError', 'MixProtocolError', 'UIError', 'UsageError',
+           'armorText', 'ceilDiv', 'checkPrivateDir', 'checkPrivateFile',
+           'createPrivateDir', 'disp64',
+           'encodeBase64', 'englishSequence', 'floorDiv', 'formatBase64',
+           'formatDate', 'formatFnameDate', 'formatFnameTime', 'formatTime',
+           'installSIGCHLDHandler', 'isSMTPMailbox', 'iterFileLines',
+           'openUnique', 'parseFnameDate',
+           'previousMidnight', 'readFile', 'readPickled',
+           'readPossiblyGzippedFile', 'secureDelete', 'stringContains',
+           'succeedingMidnight', 'tryUnlink', 'unarmorText',
+           'waitForChildren', 'writeFile', 'writePickled']
 
 import binascii
 import bisect
@@ -46,9 +46,11 @@ except ImportError:
     mcvcrt = None
 
 try:
-    import pwd, grp
+    import pwd
+    import grp
 except ImportError:
-    pwd = grp = None
+    pwd = None
+    grp = None
 
 try:
     file.__iter__
@@ -58,7 +60,7 @@ except (KeyError, AttributeError, NameError), _:
         import xreadlines
     except ImportError:
         xreadlines = None
-        
+
 try:
     iter
 except NameError:
@@ -66,29 +68,36 @@ except NameError:
 
 from types import StringType
 
+
 class MixError(Exception):
     """Base exception class for all Mixminion errors"""
     pass
+
 
 class MixFatalError(MixError):
     """Exception class for unrecoverable Mixminion errors."""
     pass
 
+
 class MixProtocolError(MixError):
     """Exception class for MMTP protocol violations"""
     pass
+
 
 class TimeoutError(MixProtocolError):
     """Exception raised for protocol timeout."""
     pass
 
+
 class MixProtocolReject(MixProtocolError):
     """Exception class for server-rejected packets."""
     pass
 
+
 class MixProtocolBadAuth(MixProtocolError):
     """Exception class for failed authentication to a server."""
     pass
+
 
 class UIError(MixError):
     """Exception raised for an error that should be reported to the user,
@@ -96,9 +105,11 @@ class UIError(MixError):
     def dump(self):
         if str(self):
             print >>sys.stderr, _logtime(), "[ERROR]", str(self)
+
     def dumpAndExit(self):
         self.dump()
         sys.exit(1)
+
 
 class UsageError(UIError):
     """Exception raised for an error that should be reported to the user
@@ -106,11 +117,13 @@ class UsageError(UIError):
     """
     pass
 
-class MixFilePermissionError(MixFatalError,UIError):
+
+class MixFilePermissionError(MixFatalError, UIError):
     """Exception raised when a file has the wrong owner or permissions."""
     pass
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 # Portability to future Python versions
 
 # In versions of Python before 2.2, a/b performed floor division if a and b
@@ -123,16 +136,17 @@ class MixFilePermissionError(MixFatalError,UIError):
 # not very readable.  Thus, we define these symbolic methods.
 
 # Python 3.0 is off in the distant future, but I like to plan ahead.
-
-def floorDiv(a,b):
+def floorDiv(a, b):
     "Compute floor(a / b). See comments for portability notes."
-    return divmod(a,b)[0]
+    return divmod(a, b)[0]
 
-def ceilDiv(a,b):
+
+def ceilDiv(a, b):
     "Compute ceil(a / b). See comments for portability notes."
-    return divmod(a-1,b)[0]+1
+    return divmod(a - 1, b)[0] + 1
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 # String handling
 
 # We create an alias to make the intent of substring-checking code
@@ -152,10 +166,11 @@ _ALLCHARS = "".join(map(chr, range(256)))
 _P_ASCII_CHARS = "\t\n\v\r"+"".join(map(chr, range(0x20, 0x7F)))
 # String containing all printing ascii characters, and all characters that
 # may be used in an extended charset.
-_P_ASCII_CHARS_HIGH = "\t\n\v\r"+"".join(map(chr, range(0x20, 0x7F)+
-                                                  range(0x80, 0xFF)))
+_P_ASCII_CHARS_HIGH = "\t\n\v\r" +\
+    "".join(map(chr, range(0x20, 0x7F) + range(0x80, 0xFF)))
 
-def isPrintingAscii(s,allowISO=0):
+
+def isPrintingAscii(s, allowISO=0):
     """Return true iff every character in s is a printing ascii character.
        If allowISO is true, also permit characters between 0x80 and 0xFF."""
     if allowISO:
@@ -163,11 +178,13 @@ def isPrintingAscii(s,allowISO=0):
     else:
         return len(s.translate(_ALLCHARS, _P_ASCII_CHARS)) == 0
 
+
 def stripSpace(s, space=" \t\v\n"):
     """Remove all whitespace from s."""
     return s.translate(_ALLCHARS, space)
 
-if sys.version_info[0:3] >= (2,1,0):
+
+if sys.version_info[0:3] >= (2, 1, 0):
     def formatBase64(s):
         """Convert 's' to a one-line base-64 representation."""
         return binascii.b2a_base64(s).strip()
@@ -176,6 +193,7 @@ else:
     def formatBase64(s):
         """Convert 's' to a one-line base-64 representation."""
         return encodeBase64(s, 64, 1)
+
 
 def encodeBase64(s, lineWidth=64, oneline=0):
     """Convert 's' to a multiline base-64 representation.  Improves upon
@@ -188,11 +206,12 @@ def encodeBase64(s, lineWidth=64, oneline=0):
         chunk = s[i:i+bytesPerLine]
         pieces.append(binascii.b2a_base64(chunk))
     if oneline:
-        return "".join([ s.strip() for s in pieces ])
+        return "".join([s.strip() for s in pieces])
     else:
         return "".join(pieces)
 
-def disp64(s,n=-1):
+
+def disp64(s, n=-1):
     """Return a 'beautified' base64 for use in log messages."""
     s = formatBase64(s)
     if n >= 0:
@@ -200,6 +219,7 @@ def disp64(s,n=-1):
     while s.endswith('='):
         s = s[:-1]
     return s
+
 
 def englishSequence(lst, empty="none", compound="and"):
     """Given a sequence of items, return the sequence formatted
@@ -215,8 +235,7 @@ def englishSequence(lst, empty="none", compound="and"):
     punc = ", "
     for item in lst:
         if ("," in item or
-            stringContains(item, " and ") or
-            stringContains(item, " or ")):
+                stringContains(item, " and ") or stringContains(item, " or ")):
             punc = "; "
             break
 
@@ -228,9 +247,11 @@ def englishSequence(lst, empty="none", compound="and"):
     else:
         return "%s%s%s %s" % (punc.join(lst[0:-1]), punc, compound, lst[-1])
 
-_HOST_CHARS = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"+
-               "abcdefghijklmnopqrstuvwxyz"+
+_HOST_CHARS = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+               "abcdefghijklmnopqrstuvwxyz" +
                "0123456789.-")
+
+
 def isPlausibleHostname(s):
     """Return true iff 's' is made up only of characters that sometimes
        appear in hostnames, and has a plausible arrangement of dots."""
@@ -242,11 +263,12 @@ def isPlausibleHostname(s):
         return 0
     return 1
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # Functions to generate and parse OpenPGP-style ASCII armor
 
 # Matches a line that needs to be ascii-armored in plaintext mode.
 DASH_ARMOR_RE = re.compile('^-', re.M)
+
 
 def armorText(s, type, headers=(), base64=1):
     """Given a string (s), string holding a message type (type), and a
@@ -256,9 +278,9 @@ def armorText(s, type, headers=(), base64=1):
 
        If base64 is false, uses cleartext armor."""
     result = []
-    result.append("-----BEGIN %s-----\n" %type)
-    for k,v in headers:
-        result.append("%s: %s\n" %(k,v))
+    result.append("-----BEGIN %s-----\n" % type)
+    for k, v in headers:
+        result.append("%s: %s\n" % (k, v))
     result.append("\n")
     if base64:
         result.append(encodeBase64(s, lineWidth=64))
@@ -266,15 +288,17 @@ def armorText(s, type, headers=(), base64=1):
         result.append(DASH_ARMOR_RE.sub('- -', s))
     if not result[-1].endswith("\n"):
         result.append("\n")
-    result.append("-----END %s-----\n" %type)
+    result.append("-----END %s-----\n" % type)
 
     return "".join(result)
 
 # Matches a begin line.
-BEGIN_LINE_RE = re.compile(r'^-----BEGIN ([^-]+)-----[ \t]*\r?$',re.M)
+BEGIN_LINE_RE = re.compile(r'^-----BEGIN ([^-]+)-----[ \t]*\r?$', re.M)
 
 # Matches a header line.
 ARMOR_KV_RE = re.compile(r'([^:\s]+): ([^\r\n]+)')
+
+
 def unarmorText(s, findTypes, base64=1, base64fn=None):
     """Parse a list of OpenPGP-style ASCII-armored messages from 's',
        and return a list of (type, headers, body) tuples, where 'headers'
@@ -303,7 +327,7 @@ def unarmorText(s, findTypes, base64=1, base64fn=None):
         endRE = re.compile(endPat, re.M)
         mEnd = endRE.search(s, mBegin.start())
         if not mEnd:
-            raise ValueError("Couldn't find end line for '%s'"%tp.lower())
+            raise ValueError("Couldn't find end line for '%s'" % tp.lower())
 
         if tp not in findTypes:
             s = s[mEnd.end()+1:]
@@ -320,18 +344,19 @@ def unarmorText(s, findTypes, base64=1, base64fn=None):
             if ":" in line:
                 m = ARMOR_KV_RE.match(line)
                 if not m:
-                    raise ValueError("Bad header for '%s'"%tp.lower())
+                    raise ValueError("Bad header for '%s'" % tp.lower())
                 fields.append((m.group(1), m.group(2)))
             elif line.strip() == '':
                 break
 
         if base64fn:
-            base64 = base64fn(tp,fields)
+            base64 = base64fn(tp, fields)
 
         if base64:
             try:
                 if stringContains(s[idx:endIdx], "\n[...]"):
-                    raise UIError("Corrupted data: value seems to be truncated by a Mixminion/Mixmaster gateway")
+                    raise UIError("Corrupted data: value seems to be "
+                                  "truncated by a Mixminion/Mixmaster gateway")
                 value = binascii.a2b_base64(s[idx:endIdx])
             except (TypeError, binascii.Incomplete, binascii.Error), e:
                 raise ValueError(str(e))
@@ -348,7 +373,7 @@ def unarmorText(s, findTypes, base64=1, base64fn=None):
 
     raise MixFatalError("Unreachable code somehow reached.")
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 # A set of directories we've issued warnings about -- we won't check
 # them again.
@@ -356,7 +381,7 @@ _WARNED_DIRECTORIES = {}
 # A set of directories that have checked out -- we won't check them again.
 _VALID_DIRECTORIES = {}
 # A list of user IDs
-_TRUSTED_UIDS = [ 0 ]
+_TRUSTED_UIDS = [0]
 
 # Flags: what standard Unix access controls should we check for?
 _CHECK_UID = 1
@@ -369,6 +394,7 @@ if sys.platform in ('cygwin', 'win32'):
 elif os.environ.get("MM_NO_FILE_PARANOIA"):
     _CHECK_UID = _CHECK_GID = _CHECK_MODE = 0
 
+
 def _uidToName(uid):
     """Helper function: given a uid, return a username or descriptive
        string."""
@@ -376,7 +402,8 @@ def _uidToName(uid):
         return pwd.getpwuid(uid)[0]
     except (KeyError, AttributeError):
         # KeyError: no such pwent.  AttributeError: pwd module not loaded.
-        return "user %s"%uid
+        return "user %s" % uid
+
 
 def _gidToName(gid):
     """Helper function: given a gid, return a groupname or descriptive string
@@ -385,7 +412,8 @@ def _gidToName(gid):
         return grp.getgrgid(gid)[0]
     except (KeyError, AttributeError):
         # KeyError: no such grpent.  AttributeError: grp module not loaded.
-        return "group %s"%gid
+        return "group %s" % gid
+
 
 def checkPrivateFile(fn, fix=1):
     """Checks whether f is a file owned by this uid, set to mode 0600 or
@@ -419,9 +447,10 @@ def checkPrivateFile(fn, fix=1):
         if not fix:
             raise MixFilePermissionError("Bad permissions (mode %o) on file %s"
                                          % (mode & 0777, fn))
-        newmode = {0:0600,0100:0700}[(mode & 0100)]
+        newmode = {0: 0600, 0100: 0700}[(mode & 0100)]
         LOG.warn("Repairing permissions on file %s" % fn)
         os.chmod(fn, newmode)
+
 
 def createPrivateDir(d, nocreate=0):
     """Create a directory, and all parent directories, checking permissions
@@ -437,6 +466,7 @@ def createPrivateDir(d, nocreate=0):
 
     checkPrivateDir(d)
 
+
 def checkPrivateDir(d, recurse=1):
     """Check whether d is a directory owned by this uid, set to mode
        0700. All of d's parents must not be writable or owned by anybody but
@@ -444,7 +474,7 @@ def checkPrivateDir(d, recurse=1):
        MixFatalErrror.  Otherwise, return None."""
     if _CHECK_UID:
         me = os.getuid()
-        trusted_uids = _TRUSTED_UIDS + [ me ]
+        trusted_uids = _TRUSTED_UIDS + [me]
 
     if not os.path.isabs(d):
         d = os.path.abspath(d)
@@ -460,11 +490,11 @@ def checkPrivateDir(d, recurse=1):
         raise MixFilePermissionError("Directory %s must be mode 0700" % d)
 
     if _CHECK_UID and st[stat.ST_UID] != me:
-        ownerName = _uidToName( st[stat.ST_UID])
+        ownerName = _uidToName(st[stat.ST_UID])
         myName = _uidToName(me)
         raise MixFilePermissionError(
             "Directory %s is owned by %s, but Mixminion is running as %s"
-            %(d,ownerName,myName))
+            % (d, ownerName, myName))
 
     if not recurse:
         return
@@ -472,7 +502,7 @@ def checkPrivateDir(d, recurse=1):
     # Check permissions on parents.
     while 1:
         parent = os.path.split(d)[0]
-        if _VALID_DIRECTORIES.has_key(parent):
+        if parent in _VALID_DIRECTORIES:
             return
         if parent == d:
             return
@@ -483,22 +513,23 @@ def checkPrivateDir(d, recurse=1):
         owner = st[stat.ST_UID]
         if _CHECK_UID and owner not in trusted_uids:
             ownerName = _uidToName(owner)
-            trustedNames = map(_uidToName,trusted_uids)
+            trustedNames = map(_uidToName, trusted_uids)
             raise MixFilePermissionError(
                 "Directory %s is owned by %s, but I only trust %s"
                 % (d, ownerName, englishSequence(trustedNames, "(nobody)")))
         if _CHECK_MODE and (mode & 02) and not (mode & stat.S_ISVTX):
             raise MixFilePermissionError(
                 "Bad permissions (mode %o) on directory %s" %
-                (mode&0777, d))
+                (mode & 0777, d))
 
         if _CHECK_MODE and (mode & 020) and not (mode & stat.S_ISVTX):
             # FFFF We may want to give an even stronger error here.
-            if _CHECK_GID and not _WARNED_DIRECTORIES.has_key(d):
+            if _CHECK_GID and d not in _WARNED_DIRECTORIES:
                 groupName = _gidToName(st[stat.ST_GID])
                 LOG.warn("Directory %s is writable by group %s (mode %o)",
-                         d, groupName, mode&0777)
+                         d, groupName, mode & 0777)
                 _WARNED_DIRECTORIES[d] = 1
+
 
 def configureFileParanoia(config):
     global _CHECK_UID
@@ -517,7 +548,7 @@ def configureFileParanoia(config):
     for uid in users:
         _TRUSTED_UIDS.append(uid)
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # File helpers
 
 # On windows, rename(f1,f2) fails if f2 already exists.  These wrappers
@@ -537,6 +568,7 @@ else:
         """Move the file named 'f1' to a new name 'f2'.  Replace any file
            already named 'f2'."""
         os.rename(f1, f2)
+
 
 class AtomicFile:
     """Wrapper around open/write/rename to encapsulate writing to a temporary
@@ -571,7 +603,8 @@ class AtomicFile:
 
     def __del__(self):
         if self.f:
-            LOG.error("Atomic file not closed/discarded: %s",self.tmpname)
+            LOG.error("Atomic file not closed/discarded: %s", self.tmpname)
+
 
 def iterFileLines(f):
     """Return an object suitable for use in a for loop that will iterate the
@@ -585,6 +618,7 @@ def iterFileLines(f):
     else:
         return f.readlines()
 
+
 def readFile(fn, binary=0):
     """Return the contents of the file named <fn>."""
     f = open(fn, ['r', 'rb'][binary])
@@ -592,6 +626,7 @@ def readFile(fn, binary=0):
         return f.read()
     finally:
         f.close()
+
 
 def writeFile(fn, contents, mode=0600, binary=0, fsync=0):
     """Atomically write a string <contents> into a file <file> with mode
@@ -605,7 +640,7 @@ def writeFile(fn, contents, mode=0600, binary=0, fsync=0):
        If fsync is true, we call fsync on the file before closing it.
        """
     tmpname = fn+".tmp"
-    f, tmpname = openUnique(tmpname, ['w','wb'][binary], mode)
+    f, tmpname = openUnique(tmpname, ['w', 'wb'][binary], mode)
     try:
         try:
             f.write(contents)
@@ -614,10 +649,12 @@ def writeFile(fn, contents, mode=0600, binary=0, fsync=0):
         finally:
             f.close()
     except:
-        if os.path.exists(tmpname): os.unlink(tmpname)
+        if os.path.exists(tmpname):
+            os.unlink(tmpname)
         raise
 
     replaceFile(tmpname, fn)
+
 
 def readPickled(fn, gzipped=0):
     """Given the name of a file containing a pickled object, return the pickled
@@ -629,6 +666,7 @@ def readPickled(fn, gzipped=0):
         return cPickle.load(f)
     finally:
         f.close()
+
 
 def writePickled(fn, obj, mode=0600, gzipped=0):
     """Given a filename and an object to be pickled, pickles the object into
@@ -644,10 +682,12 @@ def writePickled(fn, obj, mode=0600, gzipped=0):
         finally:
             f.close()
     except:
-        if os.path.exists(tmpname): os.unlink(tmpname)
+        if os.path.exists(tmpname):
+            os.unlink(tmpname)
         raise
 
     replaceFile(tmpname, fn)
+
 
 def tryUnlink(fname):
     """Try to remove the file named fname.  If the file is erased, return 1.
@@ -661,7 +701,7 @@ def tryUnlink(fname):
             return 0
         raise
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # Secure filesystem operations.
 
 # A 'shred' command to overwrite and unlink files.  It should accept an
@@ -670,6 +710,7 @@ def tryUnlink(fname):
 _SHRED_CMD = "---"
 # Tuple of options to be passed to the 'shred' command
 _SHRED_OPTS = None
+
 
 def configureShredCommand(conf):
     """Initialize the secure delete command from a given Config object.
@@ -697,6 +738,8 @@ def configureShredCommand(conf):
 _BLKSIZEMAP = {}
 # A string of max(_BLKSIZEMAP.values()) zeros
 _NILSTR = ""
+
+
 def _overwriteFile(f):
     """Overwrite f with zeros, rounding up to the nearest block.  This is
        used as the default implementation of secureDelete."""
@@ -709,15 +752,15 @@ def _overwriteFile(f):
             try:
                 sz = os.statvfs(parent)[statvfs.F_BSIZE]
             except OSError:
-                sz = 8192 # Should be a safe guess? (????)
+                sz = 8192  # Should be a safe guess? (????)
         else:
-            sz = 8192 # Should be a safe guess? (????)
+            sz = 8192  # Should be a safe guess? (????)
         _BLKSIZEMAP[parent] = sz
         if sz > len(_NILSTR):
             _NILSTR = '\x00' * sz
     nil = _NILSTR[:sz]
     try:
-        fd = os.open(f, os.O_WRONLY|O_BINARY)
+        fd = os.open(f, os.O_WRONLY | O_BINARY)
     except OSError:
         return
     try:
@@ -729,6 +772,7 @@ def _overwriteFile(f):
             os.fsync(fd)
     finally:
         os.close(fd)
+
 
 def secureDelete(fnames, blocking=0):
     """Given a list of filenames, removes the contents of all of those
@@ -780,13 +824,13 @@ def secureDelete(fnames, blocking=0):
     for i in xrange(0, len(fnames), 250-len(_SHRED_OPTS)):
         files = fnames[i:i+250-len(_SHRED_OPTS)]
         try:
-            #XXXX008 if blocking, we should just call this with P_WAIT.
+            # XXXX008 if blocking, we should just call this with P_WAIT.
             pid = os.spawnl(os.P_NOWAIT,
                             _SHRED_CMD, _SHRED_CMD, *(_SHRED_OPTS+files))
         except OSError, e:
             if e.errno not in (errno.EAGAIN, errno.ENOMEM):
                 raise
-            LOG.warn("Transient error while shredding files: %s",e)
+            LOG.warn("Transient error while shredding files: %s", e)
             for f in files:
                 if os.path.exists(f):
                     _overwriteFile(f)
@@ -799,7 +843,8 @@ def secureDelete(fnames, blocking=0):
                     # sigchild handler might get to the pid first.
                     pass
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 # Logging
 #
 # I'm trying to make this interface look like a subset of the one in
@@ -807,43 +852,45 @@ def secureDelete(fnames, blocking=0):
 
 # This weirdness is used to memoize lookups in the 'time' module's namespace.
 # "LOG.log" can get called a lot, so this matters.
-def _logtime(_time=time.time,_strftime=time.strftime,
-             _localtime=time.localtime,_tzadj=[None],_dst=[None]):
+def _logtime(_time=time.time, _strftime=time.strftime,
+             _localtime=time.localtime, _tzadj=[None], _dst=[None]):
     'Helper function.  Returns current local time formatted for log.'
     t = _time()
     lt = _localtime(t)
 
     # We use the '_dst[0]' variable to check whether our DST setting
     # has changed since the last time _logtime was called.
-    if lt[8]!=_dst[0]:
+    if lt[8] != _dst[0]:
         # If it was, we regenerate the string '_tzadj[0]' to be the
         # adjustment to UTC used to get local time.
-        _dst[0]=lt[8]
-        offset = floorDiv((calendar.timegm(lt)-time.mktime(lt)),60)
-        if offset>=0:
-            sign="+"
+        _dst[0] = lt[8]
+        offset = floorDiv((calendar.timegm(lt) - time.mktime(lt)), 60)
+        if offset >= 0:
+            sign = "+"
         else:
-            sign='-'
-        h,m=divmod(abs(offset),60)
-        _tzadj[0]="%s%02d%02d"%(sign,h,m)
+            sign = '-'
+        h, m = divmod(abs(offset), 60)
+        _tzadj[0] = "%s%02d%02d" % (sign, h, m)
 
-    return "%s.%03d %s"%(_strftime("%b %d %H:%M:%S", lt),
-                         (t*1000)%1000,
-                         _tzadj[0])
-    #return time.strftime("%b %d %H:%M:%S.%%03d %z", time.localtime(t)) %(
+    return "%s.%03d %s" % (_strftime("%b %d %H:%M:%S", lt),
+                           (t * 1000) % 1000,
+                           _tzadj[0])
+    # return time.strftime("%b %d %H:%M:%S.%%03d %z", time.localtime(t)) %(
     #    (t*1000)%1000)
+
 
 class _FileLogHandler:
     """Helper class for logging.  Represents a file on disk, and allows the
        usual close-and-open gimmick for log rotation."""
-     ## Fields:
-     #     file -- a file object, or None if the file is closed.
-     #     fname -- this log's associated filename
+    # Fields:
+    #     file -- a file object, or None if the file is closed.
+    #     fname -- this log's associated filename
     def __init__(self, fname):
         "Create a new FileLogHandler to append messages to fname"
         self.file = None
         self.fname = fname
         self.reset()
+
     def reset(self):
         """Close and reopen our underlying file.  This behavior is needed
            to implement log rotation."""
@@ -856,10 +903,12 @@ class _FileLogHandler:
             self.file = open(self.fname, 'a')
         except OSError, e:
             self.file = None
-            raise MixError("Unable to open log file %r: %s"%(self.fname, e))
+            raise MixError("Unable to open log file %r: %s" % (self.fname, e))
+
     def close(self):
         "Close the underlying file"
         self.file.close()
+
     def write(self, severity, message):
         """(Used by Log: write a message to this log handler.)"""
         if self.file is None:
@@ -867,26 +916,33 @@ class _FileLogHandler:
         print >> self.file, "%s [%s] %s" % (_logtime(), severity, message)
         self.file.flush()
 
+
 class _ConsoleLogHandler:
     """Helper class for logging: directs all log messages to a stderr-like
        file object"""
     def __init__(self, file):
         "Create a new _ConsoleLogHandler attached to a given file."""
         self.file = file
-    def reset(self): pass
-    def close(self): pass
+
+    def reset(self):
+        pass
+
+    def close(self):
+        pass
+
     def write(self, severity, message):
         """(Used by Log: write a message to this log handler.)"""
         print >> self.file, "%s [%s] %s" % (_logtime(), severity, message)
 
 # Map from log severity name to numeric values
-_SEVERITIES = { 'TRACE' : -2,
-                'DEBUG' : -1,
-                'INFO' : 0,
-                'WARN' : 1,
-                'ERROR': 2,
-                'FATAL' : 3,
-                'NEVER' : 100}
+_SEVERITIES = {'TRACE': -2,
+               'DEBUG': -1,
+               'INFO':  0,
+               'WARN':  1,
+               'ERROR': 2,
+               'FATAL': 3,
+               'NEVER': 100}
+
 
 class Log:
     """A Log is a set of destinations for system messages, along with the
@@ -905,7 +961,7 @@ class Log:
 
        In practice, we instantiate only a single instance of this class,
        accessed as mixminion.Common.LOG."""
-    ## Fields:
+    # Fields:
     # handlers: a list of logHandler objects.
     # severity: a severity below which log messages are ignored.
     # silenceNoted: true iff we have printed a message about silencing the
@@ -926,7 +982,7 @@ class Log:
            of the value of 'Daemon' or 'EchoMessages'.
            """
         self.handlers = []
-        if config == None or not config.has_section("Server"):
+        if config is None or not config.has_section("Server"):
             # We're configuring a client.
             self.setMinSeverity("WARN")
             self.addHandler(_ConsoleLogHandler(sys.stderr))
@@ -949,15 +1005,15 @@ class Log:
             # If we're successful, and we're absolutely supposed to echo
             # messages (or keepStderr is set), we don't even consider
             # dumping the console log handler.
-            if keepStderr or config['Server'].get('EchoMessages',0)==2:
+            if keepStderr or config['Server'].get('EchoMessages', 0) == 2:
                 return
             # If we're running in daemon mode, or we're not supposed to echo
             # messages, we remove the console log handler.
-            if (config['Server'].get('Daemon',0) or
-                not config['Server'].get('EchoMessages',0)):
+            if (config['Server'].get('Daemon', 0) or
+                    not config['Server'].get('EchoMessages', 0)):
                 if not self.silenceNoted:
-                    print "Silencing the console log; look in %s instead"%(
-                        logfile)
+                    print ("Silencing the console log; look in %s instead"
+                           % logfile)
                     self.silenceNoted = 1
                 del self.handlers[0]
 
@@ -969,7 +1025,7 @@ class Log:
     def getMinSeverity(self):
         """Return a string representation of this log's minimum severity
            level."""
-        for k,v in _SEVERITIES.items():
+        for k, v in _SEVERITIES.items():
             if v == self.severity:
                 return k
         return "INFO"
@@ -1005,7 +1061,7 @@ class Log:
            then send message%args to all the underlying log handlers."""
 
         # Enable this block to bail early in production versions
-        #if _SEVERITIES.get(severity, 100) < self.severity:
+        # if _SEVERITIES.get(severity, 100) < self.severity:
         #    return
         if args is None:
             m = message
@@ -1026,21 +1082,27 @@ class Log:
     def trace(self, message, *args):
         "Write a trace (hyperverbose) message to the log"
         self.log("TRACE", message, *args)
+
     def debug(self, message, *args):
         "Write a debug (verbose) message to the log"
         self.log("DEBUG", message, *args)
+
     def info(self, message, *args):
         "Write an info (non-error) message to the log"
         self.log("INFO", message, *args)
+
     def warn(self, message, *args):
         "Write a warn (recoverable error) message to the log"
         self.log("WARN", message, *args)
+
     def error(self, message, *args):
         "Write an error (message loss error) message to the log"
         self.log("ERROR", message, *args)
+
     def fatal(self, message, *args):
         "Write a fatal (unrecoverable system error) message to the log"
         self.log("FATAL", message, *args)
+
     def log_exc(self, severity, (exclass, ex, tb), message=None, *args):
         """Write an exception and stack trace to the log.  If message and
            args are provided, use them as an explanatory message; otherwise,
@@ -1058,7 +1120,7 @@ class Log:
             self.log(severity, "Unexpected exception")
 
         formatted = traceback.format_exception(exclass, ex, tb)
-        formatted[1:] = [ "  %s" % line for line in formatted[1:] ]
+        formatted[1:] = ["  %s" % line for line in formatted[1:]]
         indented = "".join(formatted)
         if indented.endswith('\n'):
             indented = indented[:-1]
@@ -1074,6 +1136,7 @@ class Log:
 
 # The global 'Log' instance for the mixminion client or server.
 LOG = Log('WARN')
+
 
 class LogStream:
     """Replacement for stdout or stderr when running in daemon mode;
@@ -1091,6 +1154,7 @@ class LogStream:
         self.name = name
         self.severity = severity
         self.buf = []
+
     def write(self, s):
         # This is inefficient, but we don't actually use this class if we can
         # avoid it.  The basic idea is to generate a call to Log.log for every
@@ -1103,7 +1167,7 @@ class LogStream:
 
         while "\n" in s:
             idx = s.index("\n")
-            line = "%s%s" %("".join(self.buf), s[:idx])
+            line = "%s%s" % ("".join(self.buf), s[:idx])
             LOG.log(self.severity, "->%s: %s", self.name, line)
             del self.buf[:]
             s = s[idx+1:]
@@ -1111,12 +1175,15 @@ class LogStream:
         if s:
             self.buf.append(s)
 
-    def flush(self): pass
-    def close(self): pass
+    def flush(self):
+        pass
 
-#----------------------------------------------------------------------
+    def close(self):
+        pass
+
+
+# ----------------------------------------------------------------------
 # StatusLog
-
 class StatusLog:
     """Used to emit machine-parseable status messages to the file
        descriptor specifed by the --status-fd argument. The set of valid
@@ -1171,9 +1238,9 @@ class StatusLog:
     def msg(self, name, args=""):
         """DOCDOC"""
         if args:
-            return "[MIXMINION:] %s %s\n" % (name,args)
+            return "[MIXMINION:] %s %s\n" % (name, args)
         else:
-            return "[MIXMINION:] %s\n"%(name)
+            return "[MIXMINION:] %s\n" % name
 
     def log(self, name, args=""):
         """DOCDOC"""
@@ -1191,45 +1258,49 @@ class StatusLog:
 # should be emitted with STATUS.log()
 STATUS = StatusLog()
 
-#----------------------------------------------------------------------
-# Time processing
 
+# ----------------------------------------------------------------------
+# Time processing
 def previousMidnight(when):
     """Given a time_t 'when', return the greatest time_t <= when that falls
        on midnight, GMT."""
-    yyyy,MM,dd = time.gmtime(when)[0:3]
-    return calendar.timegm((yyyy,MM,dd,0,0,0,0,0,0))
+    yyyy, MM, dd = time.gmtime(when)[0:3]
+    return calendar.timegm((yyyy, MM, dd, 0, 0, 0, 0, 0, 0))
+
 
 def succeedingMidnight(when):
     """Given a time_t 'when', return the smallest time_t > when that falls
        on midnight, GMT."""
-    yyyy,MM,dd = time.gmtime(when)[0:3]
+    yyyy, MM, dd = time.gmtime(when)[0:3]
     try:
-        return calendar.timegm((yyyy,MM,dd+1,0,0,0,0,0,0))
+        return calendar.timegm((yyyy, MM, dd + 1, 0, 0, 0, 0, 0, 0))
     except ValueError:
         # Python 2.3 seems to raise ValueError when dd is the last day of the
         # month.
         pass
     if MM < 12:
-        return calendar.timegm((yyyy,MM+1,1,0,0,0,0,0,0))
+        return calendar.timegm((yyyy, MM + 1, 1, 0, 0, 0, 0, 0, 0))
     else:
-        return calendar.timegm((yyyy+1,1,1,0,0,0,0,0,0))
+        return calendar.timegm((yyyy + 1, 1, 1, 0, 0, 0, 0, 0, 0))
 
-def formatTime(when,localtime=0):
+
+def formatTime(when, localtime=0):
     """Given a time in seconds since the epoch, returns a time value in the
        format used by server descriptors (YYYY/MM/DD HH:MM:SS) in GMT"""
     if localtime:
         gmt = time.localtime(when)
     else:
         gmt = time.gmtime(when)
-    return "%04d-%02d-%02d %02d:%02d:%02d" % (
-        gmt[0],gmt[1],gmt[2],  gmt[3],gmt[4],gmt[5])
+    return ("%04d-%02d-%02d %02d:%02d:%02d"
+            % (gmt[0], gmt[1], gmt[2], gmt[3], gmt[4], gmt[5]))
+
 
 def formatDate(when):
     """Given a time in seconds since the epoch, returns a date value in the
        format used by server descriptors (YYYY/MM/DD) in GMT"""
-    gmt = time.gmtime(when+1) # Add 1 to make sure we round down.
-    return "%04d-%02d-%02d" % (gmt[0],gmt[1],gmt[2])
+    gmt = time.gmtime(when + 1)  # Add 1 to make sure we round down.
+    return "%04d-%02d-%02d" % (gmt[0], gmt[1], gmt[2])
+
 
 def formatFnameDate(when=None):
     """Given a time in seconds since the epoch, returns a date value suitable
@@ -1239,6 +1310,7 @@ def formatFnameDate(when=None):
         when = time.time()
     return time.strftime("%Y%m%d", time.localtime(when))
 
+
 def formatFnameTime(when=None):
     """Given a time in seconds since the epoch, returns a date-time
        value suitable for use as part of a filename.  Defaults to the
@@ -1247,26 +1319,27 @@ def formatFnameTime(when=None):
         when = time.time()
     return time.strftime("%Y%m%d%H%M%S", time.localtime(when))
 
+
 def parseFnameDate(s):
     """Given a date as generated by formatFnameTime, return a (long) time
        value for midnight on that date."""
     if len(s) != 8:
-        raise ValueError("Invalid filename date %r (wrong length)"%s)
+        raise ValueError("Invalid filename date %r (wrong length)" % s)
     try:
         yyyy = int(s[:4])
         MM = int(s[4:6])
         dd = int(s[6:])
     except ValueError:
-        raise ValueError("Invalid filename date %r (contains noninteger)"%s)
+        raise ValueError("Invalid filename date %r (contains noninteger)" % s)
+    return calendar.timegm((yyyy, MM, dd, 0, 0, 0, 0, 0, 0))
 
-    return calendar.timegm((yyyy,MM,dd,0,0,0,0,0,0))
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 class Duration:
     """A Duration is a number of time units, such as '1.5 seconds' or
        '2 weeks'.  Durations are stored internally as a number of seconds.
     """
-    ## Fields:
+    # Fields:
     # seconds: the number of seconds in this duration
     # unitName: the name of the units comprising this duration.
     # nUnits: the number of units in this duration
@@ -1305,28 +1378,28 @@ class Duration:
     def reduce(self):
         """Change the representation of this object to its clearest form"""
         s = self.seconds
-        for n,u in [(60*60*24*365,'year'),
-                    (60*60*24*30, 'month'),
-                    (60*60*24*7,  'week'),
-                    (60*60*24,    'day'),
-                    (60*60,       'hour'),
-                    (60,          'minute')]:
+        for n, u in [(60 * 60 * 24 * 365, 'year'),
+                     (60 * 60 * 24 * 30, 'month'),
+                     (60 * 60 * 24 * 7, 'week'),
+                     (60 * 60 * 24, 'day'),
+                     (60 * 60, 'hour'),
+                     (60, 'minute')]:
             if s % n == 0:
-                self.nUnits = floorDiv(s,n)
+                self.nUnits = floorDiv(s, n)
                 self.unitName = u
                 return
         self.nUnits = s
         self.unitName = 'second'
         return self
 
-#----------------------------------------------------------------------
-# IntervalSet
 
+# ----------------------------------------------------------------------
+# IntervalSet
 class IntervalSet:
     """An IntervalSet is a mutable set of numeric intervals, closed below and
        open above.  Not very optimized for now.  Supports "+" for union, "-"
        for disjunction, and "*" for intersection."""
-    ## Fields:
+    # Fields:
     # edges: an ordered list of boundary points between interior and
     #     exterior points, of the form (x, '+') for an 'entry' and
     #     (x, '-') for an 'exit' boundary.
@@ -1343,17 +1416,20 @@ class IntervalSet:
                 if start < end:
                     self.edges.append((start, '+'))
                     self.edges.append((end, '-'))
+
     def copy(self):
         """Create a new IntervalSet with the same intervals as this one."""
         r = IntervalSet()
         r.edges = self.edges[:]
         return r
+
     def __iadd__(self, other):
         """self += b : Causes this set to contain all points in itself or
            in b."""
         self.edges += other.edges
         self._cleanEdges()
         return self
+
     def __isub__(self, other):
         """self -= b : Causes this set to contain all points in itself but not
            in b"""
@@ -1364,6 +1440,7 @@ class IntervalSet:
                 self.edges.append((t, '+'))
         self._cleanEdges()
         return self
+
     def __imul__(self, other):
         """self *= b : Causes this set to contain all points in both itself and
            b."""
@@ -1380,7 +1457,7 @@ class IntervalSet:
         edges = self.edges
         edges.sort()
         depth = 0
-        newEdges = [ ('X', 'X') ] #marker value; will be removed.
+        newEdges = [('X', 'X')]  # marker value; will be removed.
         for t, e in edges:
             # Traverse the edges in order; keep track of how many more
             # +'s we have seen than -'s.  Whenever that number increases
@@ -1452,8 +1529,8 @@ class IntervalSet:
         return len(self.edges) != 0
 
     def __repr__(self):
-        s = [ "(%s,%s)"%(start,end) for start, end in self.getIntervals() ]
-        return "IntervalSet([%s])"%",".join(s)
+        s = ["(%s,%s)" % (start, end) for start, end in self.getIntervals()]
+        return "IntervalSet([%s])" % ",".join(s)
 
     def getIntervals(self):
         """Returns a list of (start,end) tuples for a the intervals in this
@@ -1492,7 +1569,8 @@ class IntervalSet:
         """Return the last point contained in this interval."""
         return self.edges[-1][0]
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 # SMTP address functionality
 
 # Regular expressions to validate RFC822 addresses.
@@ -1517,6 +1595,7 @@ RFC822_RE = re.compile(_RFC822_PAT)
 _EMAIL_BY_IP_PAT = r"\A.*@\d+(?:\.\d+)*\Z"
 EMAIL_BY_IP_RE = re.compile(_EMAIL_BY_IP_PAT)
 
+
 def isSMTPMailbox(s):
     """Return true iff s is a valid SMTP address"""
     m = RFC822_RE.match(s)
@@ -1525,7 +1604,8 @@ def isSMTPMailbox(s):
     m = EMAIL_BY_IP_RE.match(s)
     return m is None
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 # Signal handling
 
 def waitForChildren(onceOnly=0, blocking=1):
@@ -1548,6 +1628,7 @@ def waitForChildren(onceOnly=0, blocking=1):
         if onceOnly:
             return
 
+
 def _sigChldHandler(signal_num, _):
     '''(Signal handler for SIGCHLD)'''
     # Because of the peculiarities of Python's signal handling logic, I
@@ -1562,8 +1643,9 @@ def _sigChldHandler(signal_num, _):
         except OSError:
             break
 
-    #outcome, core, sig = status & 0xff00, status & 0x0080, status & 0x7f
+    # outcome, core, sig = status & 0xff00, status & 0x0080, status & 0x7f
     # FFFF Log if outcome wasn't as expected.
+
 
 def installSIGCHLDHandler():
     '''Register sigchld handler for this process.'''
@@ -1571,7 +1653,8 @@ def installSIGCHLDHandler():
         return
     signal.signal(signal.SIGCHLD, _sigChldHandler)
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 # File helpers.
 
 def readPossiblyGzippedFile(fname, mode='r'):
@@ -1588,6 +1671,7 @@ def readPossiblyGzippedFile(fname, mode='r'):
         if f is not None:
             f.close()
 
+
 def openUnique(fname, mode='w', perms=0600):
     """Helper function. Returns a file open for writing into the file named
        'fname'.  If fname already exists, opens 'fname.1' or 'fname.2' or
@@ -1600,26 +1684,30 @@ def openUnique(fname, mode='w', perms=0600):
     idx = 0
     while 1:
         try:
-            fd = os.open(fname, os.O_WRONLY|os.O_CREAT|os.O_EXCL|bin, perms)
+            fd = os.open(fname,
+                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | bin,
+                         perms)
             return os.fdopen(fd, mode), fname
         except OSError, e:
             if e.errno != errno.EEXIST:
                 raise
         idx += 1
-        fname = os.path.join(base, "%s.%s"%(rest,idx))
+        fname = os.path.join(base, "%s.%s" % (rest, idx))
 
     raise MixFatalError("unreachable code")
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 class LockfileLocked(Exception):
     """Exception raised when trying to get a nonblocking lock on a locked
        lockfile"""
     pass
 
+
 class Lockfile:
     """Class to implement a recursive advisory lock, using flock on a
        'well-known' filename."""
-    ## Fields:
+    # Fields:
     # filename--the name of the file to lock
     # count--the recursion depth of the lock; 0 is unlocked.
     # fd--If fd>1, a file descriptor open to 'filename'.  Otherwise, None.
@@ -1630,7 +1718,7 @@ class Lockfile:
         self.filename = filename
         self.count = 0
         self.fd = None
-        self.rlock = threading.Lock() #DOCDOC
+        self.rlock = threading.Lock()  # DOCDOC
 
     def getContents(self):
         """Return the contents of the lock file, or None if it has been
@@ -1658,7 +1746,7 @@ class Lockfile:
                 return
 
             assert self.fd is None
-            self.fd = os.open(self.filename, os.O_RDWR|os.O_CREAT, mode)
+            self.fd = os.open(self.filename, os.O_RDWR | os.O_CREAT, mode)
             try:
                 self._lock(self.fd, blocking)
                 self.count += 1
@@ -1680,7 +1768,7 @@ class Lockfile:
         assert self.count > 0 and self.fd is not None
         SEEK_SET = 0
         os.lseek(self.fd, 0, SEEK_SET)
-        if hasattr(os, 'ftruncate'): # Doesn't exist on windows.
+        if hasattr(os, 'ftruncate'):  # Doesn't exist on windows.
             os.ftruncate(self.fd, 0)
         os.write(self.fd, contents)
         if hasattr(os, 'fsync'):
@@ -1718,7 +1806,8 @@ class Lockfile:
         if fcntl:
             # Posixy systems have a friendly neighborhood flock clone.
             flags = fcntl.LOCK_EX
-            if not blocking: flags |= fcntl.LOCK_NB
+            if not blocking:
+                flags |= fcntl.LOCK_NB
             try:
                 fcntl.flock(fd, flags)
             except IOError, e:
@@ -1759,7 +1848,10 @@ class Lockfile:
         else:
             _warn_no_locks()
 
+
 _warned_no_locks = 0
+
+
 def _warn_no_locks():
     global _warned_no_locks
     if not _warned_no_locks:
