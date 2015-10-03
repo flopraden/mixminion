@@ -1,7 +1,7 @@
 #!/usr/bin/python2
 # Copyright 2002-2011 Nick Mathewson.  See LICENSE for licensing information.
 
-#"""Code to correct the python path, and multiplex between the various
+#   """Code to correct the python path, and multiplex between the various
 #   Mixminion CLIs.
 #
 #   This is the command-line entry point for all of mixminion.
@@ -17,18 +17,19 @@
 import sys
 
 # Check: are we running a version earlier than 2.0?  If so, die.
-if not hasattr(sys,'version_info') or sys.version_info[0] < 2:
+if not hasattr(sys, 'version_info') or sys.version_info[0] < 2:
     import string
-    _ver = sys.version[:string.find(sys.version,' ')]
+    _ver = sys.version[:string.find(sys.version, ' ')]
     sys.stderr.write((
-        "ERROR: Mixminion requires Python version 2.0 or higher.\n"+
-        "       You seem to be running version %s.\n")%_ver)
+        "ERROR: Mixminion requires Python version 2.0 or higher.\n" +
+        "       You seem to be running version %s.\n") % _ver)
     sys.exit(1)
 
 import getopt
 import os
 import stat
 import types
+
 
 def filesAreSame(f1, f2):
     "Return true if f1 and f2 are exactly the same file."
@@ -41,6 +42,7 @@ def filesAreSame(f1, f2):
         return ino1 and ino1 > 0 and ino1 == ino2
     except OSError:
         return 0
+
 
 def correctPath(myself):
     "Given a command (sys.argv[0]), fix sys.path so 'import mixminion' works"
@@ -66,9 +68,10 @@ def correctPath(myself):
     mydir = os.path.split(myself)[0]
     parentdir, miniondir = os.path.split(mydir)
     if not miniondir == 'mixminion':
-        sys.stderr.write(("Bad mixminion installation:\n"+
-        " I resolved %s to %s, but expected to find ../mixminion/Main.py\n")%(
-            orig_cmd, myself))
+        sys.stderr.write((
+            "Bad mixminion installation:\n" +
+            " I resolved %s to %s, but expected to find ../mixminion/Main.py" +
+            "\n") % (orig_cmd, myself))
 
     # Now we check whether there's already an entry in sys.path.  If not,
     # we add the directory we found.
@@ -80,15 +83,17 @@ def correctPath(myself):
         if not isinstance(pathEntry, types.StringType):
             continue
         if os.path.normpath(pathEntry) == parentdir:
-            foundEntry = 1; break
+            foundEntry = 1
+            break
 
         ent = os.path.join(pathEntry, 'mixminion', 'Main.py')
         if os.path.exists(ent) and filesAreSame(pathEntry, myself):
-            foundEntry = 1; break
+            foundEntry = 1
+            break
 
     if not foundEntry:
-        #sys.stderr.write("Adding %s to PYTHONPATH\n" % parentdir)
-        sys.path[0:0] = [ parentdir ]
+        # sys.stderr.write("Adding %s to PYTHONPATH\n" % parentdir)
+        sys.path[0] = [parentdir]
 
     # Finally, we make sure it all works.
     try:
@@ -96,7 +101,7 @@ def correctPath(myself):
         #   parseable by Python 1.1.  You're welcome.
         __import__('mixminion.Main')
     except ImportError, e:
-        sys.stderr.write(str(e)+"\n")
+        sys.stderr.write(str(e) + "\n")
         sys.stderr.write("Unable to find correct path for mixminion.\n")
         sys.exit(1)
 
@@ -111,111 +116,116 @@ def correctPath(myself):
 #   By convention, all commands must print a usage message and exit when
 #   invoked with a single argument, "--help"
 _COMMANDS = {
-    "version" :        ( 'mixminion.Main',       'printVersion' ),
-    "unittests" :      ( 'mixminion.test',       'testAll' ),
-    "benchmarks" :     ( 'mixminion.benchmark',  'timeAll' ),
-    "testvectors" :    ( 'mixminion.testSupport', 'testVectors' ),
-    "send" :           ( 'mixminion.ClientMain', 'runClient' ),
-    "queue" :          ( 'mixminion.ClientMain', 'runClient' ),
-    "import-server" :  ( 'mixminion.ClientMain', 'importServer' ),
-    "list-server" :    ( 'mixminion.ClientMain', 'listServers' ),
-    "list-servers" :   ( 'mixminion.ClientMain', 'listServers' ),
-    "update-servers" : ( 'mixminion.ClientMain', 'updateServers' ),
-    "decode" :         ( 'mixminion.ClientMain', 'clientDecode' ),
-    "generate-surb" :  ( 'mixminion.ClientMain', 'generateSURB' ),
-    "generate-surbs" : ( 'mixminion.ClientMain', 'generateSURB' ),
-    "inspect-surb" :   ( 'mixminion.ClientMain', 'inspectSURBs' ),
-    "inspect-surbs" :  ( 'mixminion.ClientMain', 'inspectSURBs' ),
-    "count-packets":   ( 'mixminion.ClientMain', 'countPackets' ),
-    "flush" :          ( 'mixminion.ClientMain', 'flushQueue' ),
-    "inspect-queue" :  ( 'mixminion.ClientMain', 'listQueue' ),
-    "clean-queue" :    ( 'mixminion.ClientMain', 'cleanQueue' ),
-    "ping" :           ( 'mixminion.ClientMain', 'runPing' ),
-    "list-fragments" : ( 'mixminion.ClientMain', 'listFragments' ),
-    "reassemble" :     ( 'mixminion.ClientMain', 'reassemble' ),
-    "purge-fragments" :( 'mixminion.ClientMain', 'reassemble' ),
-    "server-start" :   ( 'mixminion.server.ServerMain', 'runServer' ),
-    "server-stop" :    ( 'mixminion.server.ServerMain', 'signalServer' ),
-    "server-reload" :  ( 'mixminion.server.ServerMain', 'signalServer' ),
-    "server-republish":( 'mixminion.server.ServerMain', 'runRepublish'),
-    "server-upgrade":  ( 'mixminion.server.ServerMain', 'runUpgrade'),
-    "server-stats" :   ( 'mixminion.server.ServerMain', 'printServerStats' ),
-    "server-DELKEYS" : ( 'mixminion.server.ServerMain', 'runDELKEYS'),
-    "dir":             ( 'mixminion.directory.DirMain', 'main'),
+    "version":          ('mixminion.Main',        'printVersion'),
+    "unittests":        ('mixminion.test',        'testAll'),
+    "benchmarks":       ('mixminion.benchmark',   'timeAll'),
+    "testvectors":      ('mixminion.testSupport', 'testVectors'),
+    "send":             ('mixminion.ClientMain',  'runClient'),
+    "queue":            ('mixminion.ClientMain',  'runClient'),
+    "import-server":    ('mixminion.ClientMain',  'importServer'),
+    "list-server":      ('mixminion.ClientMain',  'listServers'),
+    "list-servers":     ('mixminion.ClientMain',  'listServers'),
+    "update-servers":   ('mixminion.ClientMain',  'updateServers'),
+    "decode":           ('mixminion.ClientMain',  'clientDecode'),
+    "generate-surb":    ('mixminion.ClientMain',  'generateSURB'),
+    "generate-surbs":   ('mixminion.ClientMain',  'generateSURB'),
+    "inspect-surb":     ('mixminion.ClientMain',  'inspectSURBs'),
+    "inspect-surbs":    ('mixminion.ClientMain',  'inspectSURBs'),
+    "count-packets":    ('mixminion.ClientMain',  'countPackets'),
+    "flush":            ('mixminion.ClientMain',  'flushQueue'),
+    "inspect-queue":    ('mixminion.ClientMain',  'listQueue'),
+    "clean-queue":      ('mixminion.ClientMain',  'cleanQueue'),
+    "ping":             ('mixminion.ClientMain',  'runPing'),
+    "list-fragments":   ('mixminion.ClientMain',  'listFragments'),
+    "reassemble":       ('mixminion.ClientMain',  'reassemble'),
+    "purge-fragments":  ('mixminion.ClientMain',  'reassemble'),
 
-    "shell":           ( 'mixminion.Main',       'commandShell' ),
+    "server-start":     ('mixminion.server.ServerMain', 'runServer'),
+    "server-stop":      ('mixminion.server.ServerMain', 'signalServer'),
+    "server-reload":    ('mixminion.server.ServerMain', 'signalServer'),
+    "server-republish": ('mixminion.server.ServerMain', 'runRepublish'),
+    "server-upgrade":   ('mixminion.server.ServerMain', 'runUpgrade'),
+    "server-stats":     ('mixminion.server.ServerMain', 'printServerStats'),
+    "server-DELKEYS":   ('mixminion.server.ServerMain', 'runDELKEYS'),
 
-    "__d":             ( 'mixminion.Main',       'mixminiondMain' ),
+    "dir":              ('mixminion.directory.DirMain', 'main'),
+
+    "shell":            ('mixminion.Main',       'commandShell'),
+
+    "__d":              ('mixminion.Main',       'mixminiondMain'),
 }
 
 _USAGE = (
-  "Usage: mixminion <command> [arguments]\n"+
-  "where <command> is one of:\n"+
-  "                              (For Everyone)\n"+
-  "       version        [Print the version of Mixminion and exit]\n"+
-  "       send           [Send an anonymous message]\n"+
-  "       queue          [Schedule an anonymous message to be sent later]\n"+
-  "       flush          [Send all messages waiting in the queue]\n"+
-  "       inspect-queue  [Describe all messages waiting in the queue]\n"+
-  "       clean-queue    [Remove old messages from the queue\n"+
-  "       import-server  [Tell the client about a new server]\n"+
-  "       list-servers   [Print a list of currently known servers]\n"+
-  "       update-servers [Download a fresh server directory]\n"+
-  "       decode         [Decode or decrypt a received message]\n"+
-  "       generate-surb  [Generate a single-use reply block]\n"+
-  "       inspect-surbs  [Describe a single-use reply block]\n"+
-  "       count-packets  [DOCDOC]\n"
-  "       ping           [Quick and dirty check whether a server is running]\n"
-  "                               (For Servers)\n"+
-  "       server-start   [Begin running a Mixminion server]\n"+
-  "       server-stop    [Halt a running Mixminion server]\n"+
-  "       server-reload  [Make running Mixminion server reload its config\n"+
-  "                        (Not implemented yet; only restarts logging.)]\n"+
-  "       server-republish    [Re-send all keys to directory server]\n"+
-  "       server-DELKEYS [Remove generated keys for a Mixminion server]\n"+
-  "       server-stats   [List as-yet-unlogged statistics for this server]\n"+
-  "       server-upgrade [Upgrade a pre-0.0.4 server homedir]\n"
-  "                             (For Developers)\n"+
-  "       dir            [Administration for server directories]\n"+
-  "       unittests      [Run the mixminion unit tests]\n"+
-  "       benchmarks     [Time underlying cryptographic operations]\n"+
-  "\n"+
-  "For help on sending a message, run 'mixminion send --help'"
+    "Usage: mixminion <command> [arguments]\n" +
+    "where <command> is one of:\n" +
+    "                          (For Everyone)\n" +
+    "   version        [Print the version of Mixminion and exit]\n" +
+    "   send           [Send an anonymous message]\n" +
+    "   queue          [Schedule an anonymous message to be sent later]\n" +
+    "   flush          [Send all messages waiting in the queue]\n" +
+    "   inspect-queue  [Describe all messages waiting in the queue]\n" +
+    "   clean-queue    [Remove old messages from the queue\n" +
+    "   import-server  [Tell the client about a new server]\n" +
+    "   list-servers   [Print a list of currently known servers]\n" +
+    "   update-servers [Download a fresh server directory]\n" +
+    "   decode         [Decode or decrypt a received message]\n" +
+    "   generate-surb  [Generate a single-use reply block]\n" +
+    "   inspect-surbs  [Describe a single-use reply block]\n" +
+    "   count-packets  [DOCDOC]\n"
+    "   ping           [Quick and dirty check whether a server is running]\n"
+    "                           (For Servers)\n" +
+    "   server-start   [Begin running a Mixminion server]\n" +
+    "   server-stop    [Halt a running Mixminion server]\n" +
+    "   server-reload  [Make running Mixminion server reload its config\n" +
+    "                    (Not implemented yet; only restarts logging.)]\n" +
+    "   server-republish    [Re-send all keys to directory server]\n" +
+    "   server-DELKEYS [Remove generated keys for a Mixminion server]\n" +
+    "   server-stats   [List as-yet-unlogged statistics for this server]\n" +
+    "   server-upgrade [Upgrade a pre-0.0.4 server homedir]\n"
+    "                         (For Developers)\n" +
+    "   dir            [Administration for server directories]\n" +
+    "   unittests      [Run the mixminion unit tests]\n" +
+    "   benchmarks     [Time underlying cryptographic operations]\n" +
+    "\n" +
+    "For help on sending a message, run 'mixminion send --help'"
 )
 
 _SERVER_USAGE = (
-    "Usage: mixminiond <command> [arguments]\n"+
-    "       start     [Begin running a Mixminion server]\n"+
-    "       stop      [Halt a running Mixminion server]\n"+
-    "       reload    [Make running Mixminion server reload its config\n"+
-    "                     (Not implemented yet; only restarts logging.)]\n"+
-    "       republish [Re-send all keys to directory server]\n"+
-    "       DELKEYS   [Remove generated keys for a Mixminion server]\n"+
-    "       stats     [List as-yet-unlogged statistics for this server]\n"+
+    "Usage: mixminiond <command> [arguments]\n" +
+    "       start     [Begin running a Mixminion server]\n" +
+    "       stop      [Halt a running Mixminion server]\n" +
+    "       reload    [Make running Mixminion server reload its config\n" +
+    "                     (Not implemented yet; only restarts logging.)]\n" +
+    "       republish [Re-send all keys to directory server]\n" +
+    "       DELKEYS   [Remove generated keys for a Mixminion server]\n" +
+    "       stats     [List as-yet-unlogged statistics for this server]\n" +
     "       upgrade   [Upgrade a pre-0.0.4 server homedir]\n"
     )
 
-def printVersion(cmd,args):
+
+def printVersion(cmd, args):
     import mixminion
     print "Mixminion version %s" % mixminion.__version__
-    print ("Copyright 2002-2011 Nick Mathewson.  "+
+    print ("Copyright 2002-2011 Nick Mathewson.  " +
            "See LICENSE for licensing information.")
     print "NOTE: This software is for testing only.  The user set is too small"
     print "      to be anonymous, and the code is too alpha to be reliable."
 
-def rejectCommand(cmd,args):
+
+def rejectCommand(cmd, args):
     # This function gets called when we have an obsolete command 'cmd'.
     # First, let's see whether we know an updated equivalent or not.
     cmd = cmd.split()[-1]
     # Map from obsolete commands to current versions.
-    cmdDict = { } # Right now, there aren't any obsolete commands still in use.
+    cmdDict = {}  # Right now, there aren't any obsolete commands still in use.
     newCmd = cmdDict.get(cmd)
     if newCmd:
-        print "The command %r is obsolete.  Use %r instead."%(cmd,newCmd)
+        print "The command %r is obsolete.  Use %r instead." % (cmd, newCmd)
     else:
-        print "The command %r is obsolete."%cmd
+        print "The command %r is obsolete." % cmd
 
     sys.exit(1)
+
 
 def printUsage(daemon=0):
     if daemon:
@@ -225,15 +235,17 @@ def printUsage(daemon=0):
     print "NOTE: This software is for testing only.  The user set is too small"
     print "      to be anonymous, and the code is too alpha to be reliable."
 
+
 def fixCommandToken(tok):
     if not tok:
         return tok
-    elif len(tok) >=2 and tok[0] in ['"', "'"] and tok[-1] == tok[0]:
+    elif len(tok) >= 2 and tok[0] in ['"', "'"] and tok[-1] == tok[0]:
         return tok[1:-1]
     else:
         return tok
 
-def commandShell(cmd,args):
+
+def commandShell(cmd, args):
     # Used to implement a 'mixminion shell' on systems (like windows) with
     # somewhat bogus CLI support.
     import mixminion
@@ -255,14 +267,14 @@ def commandShell(cmd,args):
 
     lexer = shlex.shlex()
     lexer.whitespace = " \t"
-    lexer.wordchars = "".join(map(chr,range(41,127)))
+    lexer.wordchars = "".join(map(chr, range(41, 127)))
     while 1:
         print
         print "mixminion>",
         words = []
         while 1:
             word = lexer.get_token()
-            if word not in ['\r','\n']:
+            if word not in ['\r', '\n']:
                 words.append(fixCommandToken(word))
             else:
                 break
@@ -270,13 +282,14 @@ def commandShell(cmd,args):
             print "Type 'help' for information, or 'exit' to quit."
             continue
         if debug:
-            print words; continue
+            print words
+            continue
         command = words[0]
         args = words[1:]
         if command == 'exit' or command == 'quit':
             sys.exit(0)
         try:
-            #print "calling main with",[sys.argv[0]]+words
+            # print "calling main with",[sys.argv[0]]+words
             main([sys.argv[0]]+words)
         except SystemExit:
             pass
@@ -285,12 +298,14 @@ def commandShell(cmd,args):
         except KeyboardInterrupt, e:
             print "Interrupted."
 
+
 def getUIError():
     """Return the UIError class from mixminion.Common"""
     commonModule = __import__('mixminion.Common', {}, {}, ['UIError'])
     return commonModule.UIError
 
-def main(args,daemon=0):
+
+def main(args, daemon=0):
     "Use <args> to fix path, pick a command and pass it arguments."
     # Specifically, args[0] is used to fix sys.path so we can import
     # mixminion.*; args[1] is used to select a command name from _COMMANDS,
@@ -304,7 +319,7 @@ def main(args,daemon=0):
         prefix = ""
 
     # Check whether we have a recognized command.
-    if len(args) == 1  or not _COMMANDS.has_key(prefix+args[1]):
+    if len(args) == 1 or prefix + args[1] not in _COMMANDS:
         printUsage(daemon)
         sys.exit(1)
 
@@ -313,7 +328,7 @@ def main(args,daemon=0):
         import mixminion
         print >>sys.stderr, "Mixminion version %s" % mixminion.__version__
         print >>sys.stderr, "This software is for testing purposes only."\
-              "  Anonymity is not guaranteed."
+                            "  Anonymity is not guaranteed."
 
     # Read the 'common' module to get the UIError class.  To simplify
     # command implementation code, we catch all UIError exceptions here.
