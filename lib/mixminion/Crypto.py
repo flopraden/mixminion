@@ -374,8 +374,8 @@ def _oaep_mgf(seed, b):
 
     assert b <= 5120
     padding = []
-    nHashes = ceilDiv(bytes, DIGEST_LEN)
-    # assert (nHashes-1)*DIGEST_LEN <= bytes <= nHashes*DIGEST_LEN
+    nHashes = ceilDiv(b, DIGEST_LEN)
+    # assert (nHashes-1)*DIGEST_LEN <= b <= nHashes*DIGEST_LEN
     padding = ([_ml.sha1("%s\x00\x00\x00%c"
                % (seed, i)) for i in range(nHashes)])
     padding = "".join(padding)
