@@ -584,7 +584,7 @@ class AtomicFile:
     def __init__(self, fname, mode='w'):
         self.fname = fname
         self.tmpname = fname + ".tmp"
-        self.f, self.tmpname = openUnique(self.tmpname)
+        self.f, self.tmpname = openUnique(self.tmpname, mode)
 
     def write(self, s):
         self.f.write(s)
@@ -1169,7 +1169,8 @@ class LogStream:
             idx = s.index("\n")
             line = "%s%s" % ("".join(self.buf), s[:idx])
             LOG.log(self.severity, "->%s: %s", self.name, line)
-            del self.buf[:]
+            # del self.buf[:]  # This should work but it makes pychecker sad
+            self.buf = []  # Now pychecker is happy
             s = s[idx+1:]
 
         if s:
@@ -1657,7 +1658,7 @@ def installSIGCHLDHandler():
 # ----------------------------------------------------------------------
 # File helpers.
 
-def readPossiblyGzippedFile(fname, mode='r'):
+def readPossiblyGzippedFile(fname):
     """Read the contents of the file <fname>.  If <fname> ends with ".gz",
        treat it as a gzipped file."""
     f = None
@@ -1677,15 +1678,15 @@ def openUnique(fname, mode='w', perms=0600):
        'fname'.  If fname already exists, opens 'fname.1' or 'fname.2' or
        'fname.3' or so on."""
     if 'b' in mode:
-        bin = O_BINARY
+        binary = O_BINARY
     else:
-        bin = 0
+        binary = 0
     base, rest = os.path.split(fname)
     idx = 0
     while 1:
         try:
             fd = os.open(fname,
-                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | bin,
+                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary,
                          perms)
             return os.fdopen(fd, mode), fname
         except OSError, e:
