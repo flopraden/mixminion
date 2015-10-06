@@ -41,8 +41,10 @@ from mixminion.Packet import MBOX_TYPE, SMTP_TYPE, DROP_TYPE, FRAGMENT_TYPE, \
 from mixminion.ThreadUtils import RWLock, DummyLock
 
 # FFFF This should be made configurable and adjustable.
-MIXMINION_DIRECTORY_URL = "http://mixminion.net/directory/Directory.gz"
-MIXMINION_DIRECTORY_FINGERPRINT = "CD80DD1B8BE7CA2E13C928D57499992D56579CCD"
+#MIXMINION_DIRECTORY_URL = "http://mixminion.net/directory/Directory.gz"
+MIXMINION_DIRECTORY_URL = "https://anemone.mooo.com:8001/Directory.gz"
+#MIXMINION_DIRECTORY_FINGERPRINT = "CD80DD1B8BE7CA2E13C928D57499992D56579CCD"
+MIXMINION_DIRECTORY_FINGERPRINT = "331B40DC771D2326CA66AE267E2767897683C8FA"
 DEFAULT_REQUIRED_LIFETIME = 1
 
 class DirectoryDownloadError(UIError):
