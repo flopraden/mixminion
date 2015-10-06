@@ -852,7 +852,7 @@ class TextEncodedMessage:
 MAX_HEADER_LEN = 900
 
 def encodeMailHeaders(subject=None, fromAddr=None, inReplyTo=None,
-                      references=None):
+                      references=None, newsgroups=None):
     """Given (optionally) any of the headers permissible for email
        messages, return a string to be prepended to a message before
        encoding.  Raise MixError on failure."""
@@ -869,6 +869,8 @@ def encodeMailHeaders(subject=None, fromAddr=None, inReplyTo=None,
         headers['IN-REPLY-TO'] = inReplyTo
     if references:
         headers['REFERENCES'] = references
+    if newsgroups:
+        headers['NEWSGROUPS'] = newsgroups
     return encodeMessageHeaders(headers)
 
 def encodeMessageHeaders(headers):
@@ -1014,7 +1016,7 @@ def _validateZlib():
     if ver in ("1.1.2", "1.1.3", "1.1.4", "1.2.0", "1.2.0.1", "1.2.0.2",
                "1.2.0.3", "1.2.0.4", "1.2.0.5", "1.2.0.6", "1.2.0.7",
                "1.2.0.8", "1.2.1", "1.2.1.1", "1.2.1.2", "1.2.2", "1.2.2.2",
-               "1.2.3", "1.2.8"):
+               "1.2.3", "1.2.7", "1.2.8"):
         _ZLIB_LIBRARY_OK = 1
         return
 
