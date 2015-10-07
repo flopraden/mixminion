@@ -17,7 +17,9 @@ import operator
 import os
 import re
 import socket
+import ssl
 import stat
+import sys
 import threading
 import time
 import types
@@ -41,8 +43,10 @@ from mixminion.Packet import MBOX_TYPE, SMTP_TYPE, DROP_TYPE, FRAGMENT_TYPE, \
 from mixminion.ThreadUtils import RWLock, DummyLock
 
 # FFFF This should be made configurable and adjustable.
-MIXMINION_DIRECTORY_URL = "http://mixminion.net/directory/Directory.gz"
-MIXMINION_DIRECTORY_FINGERPRINT = "CD80DD1B8BE7CA2E13C928D57499992D56579CCD"
+#MIXMINION_DIRECTORY_URL = "http://mixminion.net/directory/Directory.gz"
+MIXMINION_DIRECTORY_URL = "https://anemone.mooo.com:8001/Directory.gz"
+#MIXMINION_DIRECTORY_FINGERPRINT = "CD80DD1B8BE7CA2E13C928D57499992D56579CCD"
+MIXMINION_DIRECTORY_FINGERPRINT = "331B40DC771D2326CA66AE267E2767897683C8FA"
 DEFAULT_REQUIRED_LIFETIME = 1
 
 class DirectoryDownloadError(UIError):
@@ -470,7 +474,13 @@ class DirectoryBackedDescriptorSource(DescriptorSource):
                           headers={ 'Pragma' : 'no-cache',
                                     'Cache-Control' : 'no-cache', })
                 startTime = time.time()
-                infile = urllib2.urlopen(request)
+                if sys.version_info >= (2,7,9):
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    infile = urllib2.urlopen(request, context=ctx)
+                else:
+                    infile = urllib2.urlopen(request)
             except IOError, e:
                 #XXXX008 the "-D no" note makes no sense for servers.
                 raise DirectoryDownloadError(

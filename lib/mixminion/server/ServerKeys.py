@@ -51,7 +51,8 @@ PREPUBLICATION_INTERVAL = 14*24*60*60
 # URL to which we should post published servers.
 #
 #FFFF Make this configurable
-DIRECTORY_UPLOAD_URL = "http://mixminion.net/minion-cgi/publish"
+#DIRECTORY_UPLOAD_URL = "http://mixminion.net/minion-cgi/publish"
+DIRECTORY_UPLOAD_URL = "https://anemone.mooo.com:8001/publish"
 
 
 # We have our X509 certificate set to expire a bit after public key does,
