@@ -17,7 +17,9 @@ import operator
 import os
 import re
 import socket
+import ssl
 import stat
+import sys
 import threading
 import time
 import types
@@ -472,7 +474,13 @@ class DirectoryBackedDescriptorSource(DescriptorSource):
                           headers={ 'Pragma' : 'no-cache',
                                     'Cache-Control' : 'no-cache', })
                 startTime = time.time()
-                infile = urllib2.urlopen(request)
+                if sys.version_info >= (2,7,9):
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    infile = urllib2.urlopen(request, context=ctx)
+                else:
+                    infile = urllib2.urlopen(request)
             except IOError, e:
                 #XXXX008 the "-D no" note makes no sense for servers.
                 raise DirectoryDownloadError(
