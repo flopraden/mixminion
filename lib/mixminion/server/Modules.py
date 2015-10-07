@@ -1003,6 +1003,8 @@ class MailBase:
             morelines.append("In-Reply-To: %s\n" % headers['IN-REPLY-TO'])
         if headers.has_key("REFERENCES"):
             morelines.append("References: %s\n" % headers['REFERENCES'])
+        if headers.has_key("NEWSGROUPS"):
+            morelines.append("Newsgroups: %s\n" % headers['NEWSGROUPS'])
         #FFFF In the long run, we may want to reject messages with
         #FFFF unrecognized headers.  But while we're in alpha, it'd
         #FFFF be too much of a headache.

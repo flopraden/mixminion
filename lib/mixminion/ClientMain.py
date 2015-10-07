@@ -1079,7 +1079,7 @@ def getOptions(args, shortOpts="", longOpts=(), dir=0, reply=0, path=0,
         shortOpts += "P:H:"
         longOpts += ["path=","hops="]
     if headers:
-        longOpts += ["subject=", "from=", "in-reply-to=", "references="]
+        longOpts += ["subject=", "from=", "in-reply-to=", "references=", "newsgroups="]
     if dest:
         shortOpts += "t:"
         longOpts += ["to="]
@@ -1113,7 +1113,7 @@ Options:
   -R <file>, --reply-block=<file>
                              %(Send)s the message to a reply block in <file>,
                              or '-' for a reply block read from stdin.
-  --subject=<str>, --from=<str>, --in-reply-to=<str>, --references=<str>
+  --subject=<str>, --from=<str>, --in-reply-to=<str>, --references=<str>, --newsgroups=<str>
                              Specify an email header for the exiting message.
   --deliver-fragments        If the message is too long to fit in a single
                              packet, then deliver multiple fragmented packets
@@ -1194,7 +1194,7 @@ def runClient(cmd, args):
         sendUsageAndExit(cmd)
 
     inFile = '-'
-    h_subject = h_from = h_irt = h_references = None
+    h_subject = h_from = h_irt = h_references = h_newsgroups = None
     no_ss_fragment = 0
     for opt,val in options:
         if opt in ('-i', '--input'):
@@ -1207,6 +1207,8 @@ def runClient(cmd, args):
             h_irt = val
         elif opt == '--references':
             h_references = val
+        elif opt == '--newsgroups':
+            h_newsgroups = val
         elif opt == '--deliver-fragments':
             no_ss_fragment = 1
 
@@ -1226,7 +1228,8 @@ def runClient(cmd, args):
     # they won't work.
     try:
         headerStr = encodeMailHeaders(subject=h_subject, fromAddr=h_from,
-                                      inReplyTo=h_irt, references=h_references)
+                                      inReplyTo=h_irt, references=h_references,
+                                      newsgroups=h_newsgroups)
     except MixError, e:
         raise UIError("Invalid headers: %s"%e)
     if no_ss_fragment:
@@ -1309,7 +1312,7 @@ Options:
   -f <file>, --config=<file> Use a configuration file other than ~/.mixminionrc
                                (You can also use MIXMINIONRC=FILE)
   -i <file>, --input=<file>  Read the message from <file>. (Defaults to stdin.)
-  --subject=<str>, --from=<str>, --in-reply-to=<str>, --references=<str>
+  --subject=<str>, --from=<str>, --in-reply-to=<str>, --references=<str>, --newsgroups=<str>
                              Specify an email header for the exiting message.
   --deliver-fragments        If the message is too long to fit in a single
                              packet, then deliver multiple fragmented packets
@@ -1337,6 +1340,8 @@ def countPackets(cmd,args):
             h_irt = val
         elif opt == '--references':
             h_references = val
+        elif opt == '--newsgroups':
+            h_newsgroups = val
         elif opt == '--deliver-fragments':
             no_ss_fragment = 1
         elif opt in ('-R', '--reply'):
