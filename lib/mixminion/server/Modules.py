@@ -1030,15 +1030,14 @@ class MailBase:
             if val:
                 header.append(_wrapHeader("%s: %s" % (h, val)))
 
-        # Blank line between headers and body
-        header.append("\n")
-
         # see if we have a disclaimer
         disclaimer = sec.get("Message")
         if disclaimer:
-            header.append("\n".join(textwrap.wrap(disclaimer.strip())))
-            # blank line between disclaimer and body.
-            header.append("\n\n")
+            disclaimer = "Comment: " + disclaimer
+            header.append(_wrapHeader(disclaimer.strip()))
+
+        # Blank line between headers and body
+        header.append("\n")
 
         self.header = "".join(header)
 
