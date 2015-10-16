@@ -13,6 +13,7 @@ import os
 import errno
 import socket
 import re
+import ssl
 import sys
 import time
 import threading
@@ -780,7 +781,18 @@ class ServerKeyset:
         f = None
         try:
             try:
-                f = urllib2.urlopen(url, fields)
+                #############################################
+                # some python versions verify certificates
+                # anemone.mooo.com uses a self-signed cert
+                # this workaround is not a problem because
+                # the directory information is already signed
+                # (although as Zax says, it is certainly a
+                # kludge ;)
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                #############################################
+                f = urllib2.urlopen(url, fields, context=ctx)
                 info = f.info()
                 reply = f.read()
             except IOError, e:
