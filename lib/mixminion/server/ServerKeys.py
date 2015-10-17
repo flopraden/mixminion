@@ -781,6 +781,14 @@ class ServerKeyset:
         f = None
         try:
             try:
+                if sys.version_info >= (2,7,9):
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    infile = urllib2.urlopen(request, context=ctx)
+                else:
+                    infile = urllib2.urlopen(request)
+
                 #############################################
                 # some python versions verify certificates
                 # anemone.mooo.com uses a self-signed cert
@@ -788,11 +796,15 @@ class ServerKeyset:
                 # the directory information is already signed
                 # (although as Zax says, it is certainly a
                 # kludge ;)
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
+                if sys.version_info >= (2,7,9):
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    f = urllib2.urlopen(url, fields, context=ctx)
+                else:
+                    f = urllib2.urlopen(url, fields, context=ctx)
                 #############################################
-                f = urllib2.urlopen(url, fields, context=ctx)
+                #f = urllib2.urlopen(url, fields)
                 info = f.info()
                 reply = f.read()
             except IOError, e:
