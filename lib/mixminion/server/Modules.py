@@ -1467,6 +1467,7 @@ def sendSMTPMessage(cfgSection, toList, fromAddr, message):
         f = os.popen(command, 'w')
         f.write(message)
         f.close()
+        res = DELIVER_OK
     else:
         server = cfgSection.get('SMTPServer','localhost')
         LOG.debug("Sending message via SMTP host %s to %s", server, toList)
