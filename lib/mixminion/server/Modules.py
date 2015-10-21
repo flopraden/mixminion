@@ -8,9 +8,8 @@
 # FFFF We may, someday, want to support non-exit modules here.
 # FFFF Maybe we should refactor MMTP delivery here too.
 
-__all__ = [ 'ModuleManager', 'DeliveryModule',
-            'DELIVER_OK', 'DELIVER_FAIL_RETRY', 'DELIVER_FAIL_NORETRY'
-            ]
+__all__ = ['ModuleManager', 'DeliveryModule',
+           'DELIVER_OK', 'DELIVER_FAIL_RETRY', 'DELIVER_FAIL_NORETRY']
 
 import errno
 import os
@@ -21,7 +20,7 @@ import socket
 import threading
 import time
 
-if sys.version_info[:2] >= (2,3):
+if sys.version_info[:2] >= (2, 3):
     import textwrap
 else:
     import mixminion._textwrap as textwrap
@@ -37,14 +36,15 @@ import mixminion.server.EventStats as EventStats
 import mixminion.server.PacketHandler
 from mixminion.Config import ConfigError
 from mixminion.Common import LOG, MixError, ceilDiv, createPrivateDir, \
-     encodeBase64, floorDiv, isPrintingAscii, isSMTPMailbox, previousMidnight,\
-     readFile, waitForChildren
+    encodeBase64, floorDiv, isPrintingAscii, isSMTPMailbox, previousMidnight,\
+    readFile, waitForChildren
 from mixminion.Packet import ParseError, CompressedDataTooLong, uncompressData
 
 # Return values for processMessage
 DELIVER_OK = 1
 DELIVER_FAIL_RETRY = 2
 DELIVER_FAIL_NORETRY = 3
+
 
 class DeliveryModule:
     """Abstract base for modules; delivery modules should implement
@@ -119,8 +119,9 @@ class DeliveryModule:
            Otherwise, the message is either a reply or an encrypted
            forward message.
            """
-        return SimpleModuleDeliveryQueue(self, queueDir,
-                                   retrySchedule=self.getRetrySchedule())
+        return SimpleModuleDeliveryQueue(self,
+                                         queueDir,
+                                         retrySchedule=self.getRetrySchedule())
 
     def processMessage(self, packet):
         """Given a DeliveryPacket object, try to deliver it.  Return one of:
@@ -140,11 +141,12 @@ class DeliveryModule:
         """Release all resources held by this module."""
         pass
 
+
 class ImmediateDeliveryQueue:
     """Helper class usable as delivery queue for modules that don't
        actually want a queue.  Such modules should have very speedy
        processMessage() methods, and should never have delivery fail."""
-    ##Fields:
+    # Fields:
     #  module: the underlying DeliveryModule object.
     def __init__(self, module):
         self.module = module
@@ -153,20 +155,20 @@ class ImmediateDeliveryQueue:
         """Instead of queueing our message, pass it directly to the underlying
            DeliveryModule."""
         try:
-            EventStats.log.attemptedDelivery() #FFFF
+            EventStats.log.attemptedDelivery()  # FFFF
             res = self.module.processMessage(packet)
             if res == DELIVER_OK:
-                EventStats.log.successfulDelivery() #FFFF
+                EventStats.log.successfulDelivery()  # FFFF
             elif res == DELIVER_FAIL_RETRY:
                 LOG.error("Unable to retry delivery for message")
-                EventStats.log.unretriableDelivery() #FFFF
+                EventStats.log.unretriableDelivery()  # FFFF
             else:
                 LOG.error("Unable to deliver message")
-                EventStats.log.unretriableDelivery() #FFFF
+                EventStats.log.unretriableDelivery()  # FFFF
         except:
             LOG.error_exc(sys.exc_info(),
-                               "Exception delivering message")
-            EventStats.log.unretriableDelivery() #FFFF
+                          "Exception delivering message")
+            EventStats.log.unretriableDelivery()  # FFFF
 
         return "<nil>"
 
@@ -185,10 +187,11 @@ class ImmediateDeliveryQueue:
            modules should use priority <0."""
         return 0
 
+
 class SimpleModuleDeliveryQueue(mixminion.server.ServerQueue.DeliveryQueue):
     """Helper class used as a default delivery queue for modules that
        don't care about batching messages to like addresses."""
-    ## Fields:
+    # Fields:
     # module: the underlying module.
     def __init__(self, module, directory, retrySchedule=None):
         mixminion.server.ServerQueue.DeliveryQueue.__init__(self, directory,
@@ -201,8 +204,8 @@ class SimpleModuleDeliveryQueue(mixminion.server.ServerQueue.DeliveryQueue):
     def _deliverMessages(self, msgList):
         for handle in msgList:
             try:
-                dh = handle.getHandle() # display handle
-                EventStats.log.attemptedDelivery() #FFFF
+                dh = handle.getHandle()  # display handle
+                EventStats.log.attemptedDelivery()  # FFFF
                 try:
                     packet = handle.getMessage()
                 except mixminion.Filestore.CorruptedFile:
@@ -210,32 +213,33 @@ class SimpleModuleDeliveryQueue(mixminion.server.ServerQueue.DeliveryQueue):
                 if packet:
                     result = self.module.processMessage(packet)
                 if not packet:
-                    pass # Python<2.1 doesn't allow 'continue' inside 'try'.
+                    pass  # Python<2.1 doesn't allow 'continue' inside 'try'.
                 elif result == DELIVER_OK:
                     LOG.debug("Successfully delivered message MOD:%s", dh)
                     handle.succeeded()
-                    EventStats.log.successfulDelivery() #FFFF
+                    EventStats.log.successfulDelivery()  # FFFF
                 elif result == DELIVER_FAIL_RETRY:
                     LOG.debug("Unable to deliver message MOD:%s; will retry",
                               dh)
                     handle.failed(1)
-                    EventStats.log.failedDelivery() #FFFF
+                    EventStats.log.failedDelivery()  # FFFF
                 else:
                     assert result == DELIVER_FAIL_NORETRY
                     LOG.error("Unable to deliver message MOD:%s; giving up",
                               dh)
                     handle.failed(0)
-                    EventStats.log.unretriableDelivery() #FFFF
+                    EventStats.log.unretriableDelivery()  # FFFF
             except:
                 LOG.error_exc(sys.exc_info(),
-                                   "Exception delivering message")
+                              "Exception delivering message")
                 handle.failed(0)
-                EventStats.log.unretriableDelivery() #FFFF
+                EventStats.log.unretriableDelivery()  # FFFF
+
 
 class DeliveryThread(threading.Thread):
     """A thread object used by ModuleManager to send messages in the
        background; delegates to ModuleManager._sendReadyMessages."""
-    ## Fields:
+    # Fields:
     # moduleManager -- a ModuleManager object.
     # event -- an Event that is set when we have messages to deliver, or
     #    when we're stopping.
@@ -272,6 +276,7 @@ class DeliveryThread(threading.Thread):
         except:
             LOG.error_exc(sys.exc_info(),
                           "Exception in delivery; shutting down thread.")
+
 
 class ModuleManager:
     """A ModuleManager knows about all of the server modules in the system.
@@ -352,15 +357,16 @@ class ModuleManager:
         self.modules.append(module)
         syn = module.getConfigSyntax()
         for sec, rules in syn.items():
-            if self.syntax.has_key(sec):
-                raise ConfigError("Multiple modules want to define [%s]"% sec)
+            if sec in self.syntax:
+                raise ConfigError("Multiple modules want to define [%s]"
+                                  % sec)
         self.syntax.update(syn)
         self.nameToModule[module.getName()] = module
 
     def setPath(self, path):
         """Sets the search path for Python modules"""
         if path:
-            self.path = [ os.path.expanduser(fn) for fn in path.split(":") ]
+            self.path = [os.path.expanduser(fn) for fn in path.split(":")]
         else:
             self.path = []
 
@@ -378,17 +384,17 @@ class ModuleManager:
             try:
                 m = __import__(pyPkg, {}, {}, [pyClassName])
             except ImportError, e:
-                raise MixError("%s while importing %s" %(str(e),className))
+                raise MixError("%s while importing %s" % (str(e), className))
         finally:
             sys.path = orig_path
         try:
             pyClass = getattr(m, pyClassName)
         except AttributeError, e:
-            raise MixError("No class %s in module %s" %(pyClassName,pyPkg))
+            raise MixError("No class %s in module %s" % (pyClassName, pyPkg))
         try:
             self.registerModule(pyClass())
         except Exception, e:
-            raise MixError("Error initializing module %s" %className)
+            raise MixError("Error initializing module %s" % className)
 
     def validate(self, config, lines, contents):
         # (As in ServerConfig)
@@ -406,14 +412,18 @@ class ModuleManager:
         """Sets up the module manager to deliver all messages whose exitTypes
             are returned by <module>.getExitTypes() to the module."""
         for t in module.getExitTypes():
-            if (self.typeToModule.has_key(t) and
-                self.typeToModule[t].getName() != module.getName()):
-                raise ConfigError("Multiple modules enabled for type %x: %s vs %s:"%(t, self.typeToModule[t].getName(), module.getName()))
+            if (t in self.typeToModule and
+                    self.typeToModule[t].getName() != module.getName()):
+                raise ConfigError("Multiple modules enabled for type "
+                                  "%x: %s vs %s:"
+                                  % (t,
+                                     self.typeToModule[t].getName(),
+                                     module.getName()))
             self.typeToModule[t] = module
 
         LOG.info("Module %s: enabled for types %s",
-                      module.getName(),
-                      map(hex, module.getExitTypes()))
+                 module.getName(),
+                 map(hex, module.getExitTypes()))
 
         queueDir = os.path.join(self.queueRoot, module.getName())
         queue = module.createDeliveryQueue(queueDir)
@@ -429,12 +439,12 @@ class ModuleManager:
         """Unmaps all the types for a module object."""
         LOG.debug("Disabling module %s", module.getName())
         for t in module.getExitTypes():
-            if (self.typeToModule.has_key(t) and
-                self.typeToModule[t].getName() == module.getName()):
+            if (t in self.typeToModule and
+                    self.typeToModule[t].getName() == module.getName()):
                 del self.typeToModule[t]
-        if self.queues.has_key(module.getName()):
+        if module.getName() in self.queues:
             del self.queues[module.getName()]
-        if self.enabled.has_key(module.getName()):
+        if module.getName in self.enabled:
             del self.enabled[module.getName()]
 
     def queueDecodedMessage(self, packet):
@@ -484,8 +494,8 @@ class ModuleManager:
         """Actual implementation of message delivery. Tells every module's
            queue to send pending messages.  This is called directly if
            we aren't threading, and from the delivery thread if we are."""
-        queuelist = [ (queue.getPriority(), queue)
-                      for queue in self.queues.values() ]
+        queuelist = [(queue.getPriority(), queue)
+                     for queue in self.queues.values()]
         queuelist.sort()
         for _, queue in queuelist:
             queue.sendReadyMessages()
@@ -495,8 +505,8 @@ class ModuleManager:
            descriptor of this server, based on the configuration of its
            modules.
         """
-        return [ m.getServerInfoBlock() for m in self.modules
-                       if self.enabled.get(m.getName(),0) ]
+        return [m.getServerInfoBlock() for m in self.modules
+                if self.enabled.get(m.getName(), 0)]
 
     def close(self):
         """Release all resources held by all modules."""
@@ -510,29 +520,40 @@ class ModuleManager:
         for module in self.enabled.keys():
             self.nameToModule[module].sync()
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 class DropModule(DeliveryModule):
     """Null-object pattern: drops all messages it receives."""
-    def usesDecodingHandle(self): return 0
+    def usesDecodingHandle(self):
+        return 0
+
     def getConfigSyntax(self):
-        return { }
+        return {}
+
     def getRetrySchedule(self):
-        return [ ]
+        return []
+
     def getServerInfoBlock(self):
         return ""
+
     def configure(self, config, manager):
         manager.enableModule(self)
+
     def getName(self):
         return "DROP"
+
     def getExitTypes(self):
-        return [ mixminion.Packet.DROP_TYPE ]
+        return [mixminion.Packet.DROP_TYPE]
+
     def createDeliveryQueue(self, directory):
         return ImmediateDeliveryQueue(self)
+
     def processMessage(self, packet):
         LOG.debug("Dropping padding message")
         return DELIVER_OK
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 class FragmentModule(DeliveryModule):
     """Module used to handle server-side reassembly of fragmented payloads.
 
@@ -557,13 +578,15 @@ class FragmentModule(DeliveryModule):
         self.maxInterval = None
         self.maxFragments = None
         self.lock = threading.RLock()
-    def usesDecodingHandle(self): return 0
+
+    def usesDecodingHandle(self):
+        return 0
+
     def getConfigSyntax(self):
-        return { "Delivery/Fragmented" :
-                 { 'Enabled' : ('REQUIRE',  "boolean", "no"),
-                   'MaximumSize' : ('REQUIRE', "size", None),
-                   'MaximumInterval' : ('ALLOW', "interval", "2 days" )
-                   } }
+        return {"Delivery/Fragmented": {
+            'Enabled': ('REQUIRE',  "boolean", "no"),
+            'MaximumSize': ('REQUIRE', "size", None),
+            'MaximumInterval': ('ALLOW', "interval", "2 days")}}
 
     def validateConfig(self, config, lines, contents):
         frag = config.get('Delivery/Fragmented', {}).get("Enabled")
@@ -573,29 +596,36 @@ class FragmentModule(DeliveryModule):
         # There are two concerns with making fragment config match up with
         # the other delivery modules: first, we need to make sure that if
         # we defragment, we have some way to reassemble fragmented messages.
-        deliverySecs = [ 'Delivery/MBOX', 'Delivery/SMTP',
-                         'Delivery/SMTP-Via-Mixmaster' ]
-        enabled = [ config.get(s,{}).get("Enabled") for s in deliverySecs ]
+        deliverySecs = ['Delivery/MBOX', 'Delivery/SMTP',
+                        'Delivery/SMTP-Via-Mixmaster']
+        enabled = [config.get(s, {}).get("Enabled") for s in deliverySecs]
 
-        if not [ e for e in enabled if e ]:
-            raise ConfigError("You've specified Fragmented delivery, but no actual delivery method.  This doesn't make much sense.")
+        if not [e for e in enabled if e]:
+            raise ConfigError("You've specified Fragmented delivery, but no "
+                              "actual delivery method.  This doesn't make "
+                              "much sense.")
 
         # Second, we warn if our MaximumSize settings aren't wildly out of
         # line.  We allow some leeway since fragment size is measured
         # before decompressing, and delivery size is measured after.  A
         # factor of 20 seem adequate.
-        maxSize = config.get('Delivery/Fragmented',{})['MaximumSize']
+        maxSize = config.get('Delivery/Fragmented', {})['MaximumSize']
         for ds, e in zip(deliverySecs, enabled):
-            if not e: continue
-            deliverSize = config.get(ds,{}).get('MaximumSize')
+            if not e:
+                continue
+            deliverSize = config.get(ds, {}).get('MaximumSize')
 
             if maxSize > deliverSize:
-                LOG.warn("Delivery/Fragmented MaximumSize is larger than can be delivered with %s MaximumSize",ds)
-            elif deliverSize > maxSize*10:
-                LOG.warn("%s MaximumSize is larger than is likely to be reassembled from Delivery/Fragmented MaximumSize")
+                LOG.warn("Delivery/Fragmented MaximumSize is larger than can "
+                         "be delivered with %s MaximumSize", ds)
+            elif deliverSize > maxSize * 10:
+                LOG.warn("%s MaximumSize is larger than is likely to be "
+                         "reassembled from Delivery/Fragmented MaximumSize"
+                         % maxSize)
 
     def getRetrySchedule(self):
-        return [ ]
+        return []
+
     def configure(self, config, manager):
         sec = config['Delivery/Fragmented']
         if not sec.get("Enabled"):
@@ -609,15 +639,19 @@ class FragmentModule(DeliveryModule):
         self.maxFragments = fp.nChunks * fp.n
         self.manager = manager
         manager.enableModule(self)
+
     def getServerInfoBlock(self):
         return """[Delivery/Fragmented]
                   Version: 0.1
                   Maximum-Fragments: %s
                """ % self.maxFragments
+
     def getName(self):
         return "FRAGMENT"
+
     def getExitTypes(self):
-        return [ mixminion.Packet.FRAGMENT_TYPE ]
+        return [mixminion.Packet.FRAGMENT_TYPE]
+
     def createDeliveryQueue(self, queueDir):
         self.lock.acquire()
         try:
@@ -626,12 +660,14 @@ class FragmentModule(DeliveryModule):
             return self._queue
         finally:
             self.lock.release()
+
     def sync(self):
         self.lock.acquire()
         try:
             self._queue.pool.sync()
         finally:
             self.lock.release()
+
     def close(self):
         self.lock.acquire()
         try:
@@ -640,14 +676,16 @@ class FragmentModule(DeliveryModule):
                 self._queue = None
         finally:
             self.lock.release()
+
     def processMessage(self, packet):
         raise AssertionError
+
 
 class FragmentDeliveryQueue:
     """Delivery queue for FragmentModule.
 
        Wraps mixminion.fragments.FragmentPool."""
-    ##Fields:
+    # Fields:
     # module: the FragmentModule.
     # directory: location used for the FragmentPool
     # pool: instance of FragmentPool
@@ -699,10 +737,12 @@ class FragmentDeliveryQueue:
             for msgid in ready:
                 msg = self.pool.getReadyMessage(msgid)
                 try:
-                    ssfm = mixminion.Packet.parseServerSideFragmentedMessage(msg)
+                    ssfm = mixminion.Packet.parseServerSideFragmentedMessage(
+                        msg)
                     del msg
                 except ParseError:
-                    LOG.warn("Dropping malformed server-side fragmented message")
+                    LOG.warn("Dropping malformed server-side fragmented "
+                             "message")
                     self.pool.markMessageCompleted(msgid, rejected=1)
                     continue
                 if len(ssfm.compressedContents) > self.module.maxMessageSize:
@@ -719,11 +759,12 @@ class FragmentDeliveryQueue:
         finally:
             self.lock.release()
 
+
 class _FragmentedDeliveryMessage:
     """Helper class: obeys the interface of mixminion.server.PacketHandler.
        DeliveryMessage, but contains a long message reassembled from
        fragments."""
-    ##Fields:
+    # Fields:
     # m: an instance of ServerSideFragmentedMessage.
     # exitType, address: the routing type and routing info for this message
     # contents: None, or the uncompressed contents off the message if it's
@@ -740,38 +781,63 @@ class _FragmentedDeliveryMessage:
         self.tp = None
         self.headers = None
 
-    def setTagged(self,tagged=1): pass
-    def isDelivery(self): return 1
-    def getExitType(self): return self.exitType
-    def getAddress(self): return self.address
+    def setTagged(self, tagged=1):
+        pass
+
+    def isDelivery(self):
+        return 1
+
+    def getExitType(self):
+        return self.exitType
+
+    def getAddress(self):
+        return self.address
+
     def getContents(self):
-        if self.contents is None: self.decode()
+        if self.contents is None:
+            self.decode()
         return self.contents
+
     def isPlaintext(self):
-        if self.contents is None: self.decode()
+        if self.contents is None:
+            self.decode()
         return self.tp == 'plain'
-    def isFragment(self): return 0
-    def isEncrypted(self): return 0
+
+    def isFragment(self):
+        return 0
+
+    def isEncrypted(self):
+        return 0
+
     def isError(self):
-        if self.contents is None: self.decode()
+        if self.contents is None:
+            self.decode()
         return self.tp == 'err'
+
     def isOvercompressed(self):
-        if self.contents is None: self.decode()
+        if self.contents is None:
+            self.decode()
         return self.tp == 'long'
+
     def isPrintingAscii(self):
-        if self.contents is None: self.decode()
+        if self.contents is None:
+            self.decode()
         return isPrintingAscii(self.contents, allowISO=1)
+
     def getAsciiContents(self):
-        if self.contents is None: self.decode()
+        if self.contents is None:
+            self.decode()
         if isPrintingAscii(self.contents, allowISO=1):
             return self.contents
         else:
             return encodeBase64(self.contents)
+
     def getHeaders(self):
         if self.contents is None:
             self.decode()
         assert self.headers is not None
         return self.headers
+
     def getTextEncodedMessage(self):
         if self.isOvercompressed():
             tp = 'LONG'
@@ -780,12 +846,13 @@ class _FragmentedDeliveryMessage:
         else:
             tp = 'BIN'
         return mixminion.Packet.TextEncodedMessage(self.contents, tp, None)
+
     def decode(self):
         maxLen = 20*len(self.m.compressedContents)
         try:
             c = uncompressData(self.m.compressedContents, maxLen)
             self.contents, self.headers = \
-                           mixminion.Packet.parseMessageAndHeaders(c)
+                mixminion.Packet.parseMessageAndHeaders(c)
             self.tp = 'plain'
         except CompressedDataTooLong:
             self.contents = self.m.compressedContents
@@ -798,7 +865,8 @@ class _FragmentedDeliveryMessage:
             self.tp = 'err'
         del self.m
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 class EmailAddressSet:
     """A set of email addresses stored on disk, for use in blacklisting email
        addresses.  The file format is line-based.  Lines starting with #
@@ -821,7 +889,7 @@ class EmailAddressSet:
                "Deny pattern /(..)*/" matches all addresses with an even number
                of characters.
     """
-    ## Fields
+    # Fields
     # addresses -- A dict whose keys are lowercased email addresses ("foo@bar")
     # domains -- A dict whose keys are lowercased domains ("foo.bar.baz").
     #   If the value for a key is 'SUB', all subdomains are also included.
@@ -850,37 +918,38 @@ class EmailAddressSet:
                 continue
             line = line.split(" ", 2)
             if len(line) != 3:
-                raise ConfigError("Invalid line at %s: %s"%(lineno, line))
+                raise ConfigError("Invalid line at %s: %s" % (lineno, line))
             deny = line[0].lower()
             if deny != self.includeStr:
-                raise ConfigError("Line on %s doesn't start with 'Deny'"%lineno)
+                raise ConfigError("Line on %s doesn't start with 'Deny'"
+                                  % lineno)
             cmd = line[1].lower()
             arg = line[2].strip()
             if cmd == 'address':
                 if not isSMTPMailbox(arg):
-                    raise ConfigError("Address %s on %s doesn't look valid"%(
-                        arg, lineno))
+                    raise ConfigError("Address %s on %s doesn't look valid"
+                                      % (arg, lineno))
                 self.addresses[arg.lower()] = 1
             elif cmd == 'user':
-                if not isSMTPMailbox(arg+"@x"):
-                    raise ConfigError("User %s on %s doesn't look valid"%(
-                        arg, lineno))
+                if not isSMTPMailbox(arg + "@x"):
+                    raise ConfigError("User %s on %s doesn't look valid"
+                                      % (arg, lineno))
                 self.users[arg.lower()] = 1
             elif cmd == 'onehost':
-                if not isSMTPMailbox("x@"+arg):
-                    raise ConfigError("Domain %s on %s doesn't look valid"%(
-                        arg, lineno))
-                if not self.domains.has_key(arg.lower()):
+                if not isSMTPMailbox("x@" + arg):
+                    raise ConfigError("Domain %s on %s doesn't look valid"
+                                      % (arg, lineno))
+                if arg.lower() not in self.domains:
                     self.domains[arg.lower()] = 1
             elif cmd == 'allhosts':
-                if not isSMTPMailbox("x@"+arg):
-                    raise ConfigError("Domain %s on %s doesn't look valid"%(
-                        arg, lineno))
+                if not isSMTPMailbox("x@" + arg):
+                    raise ConfigError("Domain %s on %s doesn't look valid"
+                                      % (arg, lineno))
                 self.domains[arg.lower()] = 'SUB'
             elif cmd == 'pattern':
                 if arg[0] != '/' or arg[-1] != '/':
-                    raise ConfigError("Pattern %s on %s is missing /s."%(
-                                      arg, lineno))
+                    raise ConfigError("Pattern %s on %s is missing /s."
+                                      % (arg, lineno))
                 arg = arg[1:-1]
                 # FFFF As an optimization, we may be able to coalesce some
                 # FFFF of these patterns.  I doubt this will become part of
@@ -891,8 +960,8 @@ class EmailAddressSet:
                     dym = '. Did you mean "OneHost" or "AllHosts"?'
                 else:
                     dym = ''
-                raise ConfigError("Unrecognized command '%s %s' on line %s%s"%(
-                    deny, cmd, lineno, dym))
+                raise ConfigError("Unrecognized command '%s %s' on line %s%s"
+                                  % (deny, cmd, lineno, dym))
 
     def contains(self, address):
         """Return true iff this this address set contains the address
@@ -904,12 +973,12 @@ class EmailAddressSet:
         """
         # Is the address blocked?
         lcaddress = address.lower()
-        if self.addresses.has_key(lcaddress):
+        if lcaddress in self.addresses:
             return 1
 
         # What about its user or domain parts?
         user, dom = lcaddress.split("@", 1)
-        if self.users.has_key(user) or self.domains.has_key(dom):
+        if user in self.users or dom in self.domains:
             return 1
 
         # Is it the subdomain of a blocked domain?
@@ -927,19 +996,20 @@ class EmailAddressSet:
         # Then it must be okay.
         return 0
 
-#----------------------------------------------------------------------
-def _cleanMaxSize(sz,modname):
+
+# ----------------------------------------------------------------------
+def _cleanMaxSize(sz, modname):
     """Given a 'Maximum-Size' configuration value, ensure that it's at least
        32KB, and round it up to the next highest 1KB increment.  Use 'modname'
        as the name of the module in warning messages.
     """
-    if sz < 32*1024:
-        LOG.warn("Ignoring low maximum message size for %s",modname)
-        sz = 32*1024
+    if sz < 32 * 1024:
+        LOG.warn("Ignoring low maximum message size for %s", modname)
+        sz = 32 * 1024
     if sz & 0x3FF:
-        kb = floorDiv(sz,1024)+1
-        LOG.warn("Rounding %s maximum message size up to %s KB",modname,kb)
-        sz = 1024*kb
+        kb = floorDiv(sz, 1024) + 1
+        LOG.warn("Rounding %s maximum message size up to %s KB", modname, kb)
+        sz = 1024 * kb
     return sz
 
 DEFAULT_SUBJECT_LINE = "Type III Anonymous Message"
@@ -950,10 +1020,11 @@ If you do not want to receive messages in the future, contact %(removeaddress)s
 and you will be removed."""
 DEFAULT_SMTP_DISCLAIMER = ""
 
+
 class MailBase:
     """Implementation class: contains code shared by modules that send email
        messages (such as mbox and smtp)."""
-    ## Fields: (to be set by subclass)
+    # Fields: (to be set by subclass)
     # subject: Default subject to use for outgoing mail, if none is given
     #    in the message.
     # fromTag: String to prepend to from name.
@@ -967,15 +1038,14 @@ class MailBase:
     # allowFromAddr: Boolean: do we support user-supplied from addresses?
 
     COMMON_OPTIONS = {
-        'MaximumSize' : ('ALLOW', "size", "100K"),
-        'AllowFromAddress' : ('ALLOW', "boolean", "yes"),
-        'SubjectLine' : ('ALLOW', None,
-                         'Type III Anonymous Message'),
-        'X-Abuse' : ('ALLOW', None, None),
-        'Comments' : ('ALLOW', None, None),
-        'Message' : ('ALLOW', None, None),
-        'FromTag' : ('ALLOW', None, "[Anon]"),
-        'ReturnAddress' : ('ALLOW', None, None),
+        'MaximumSize': ('ALLOW', "size", "100K"),
+        'AllowFromAddress': ('ALLOW', "boolean", "yes"),
+        'SubjectLine': ('ALLOW', None, 'Type III Anonymous Message'),
+        'X-Abuse': ('ALLOW', None, None),
+        'Comments': ('ALLOW', None, None),
+        'Message': ('ALLOW', None, None),
+        'FromTag': ('ALLOW', None, "[Anon]"),
+        'ReturnAddress': ('ALLOW', None, None),
         }
 
     def _formatEmailMessage(self, address, packet):
@@ -999,21 +1069,25 @@ class MailBase:
             fromAddr = self.returnAddress
 
         morelines = []
-        if headers.has_key("IN-REPLY-TO"):
+        if "IN-REPLY-TO" in headers:
             morelines.append("In-Reply-To: %s\n" % headers['IN-REPLY-TO'])
-        if headers.has_key("REFERENCES"):
+        if "REFERENCES" in headers:
             morelines.append("References: %s\n" % headers['REFERENCES'])
-        if headers.has_key("NEWSGROUPS"):
+        if "NEWSGROUPS" in headers:
             morelines.append("Newsgroups: %s\n" % headers['NEWSGROUPS'])
-        #FFFF In the long run, we may want to reject messages with
-        #FFFF unrecognized headers.  But while we're in alpha, it'd
-        #FFFF be too much of a headache.
+        # FFFF In the long run, we may want to reject messages with
+        # FFFF unrecognized headers.  But while we're in alpha, it'd
+        # FFFF be too much of a headache.
 
         # Decode and escape the message, and get ready to send it.
         msg = _escapeMessageForEmail(packet)
-        msg = "To: %s\nFrom: %s\nSubject: %s\n%s%s%s"%(
-            address, fromAddr, subject, "".join(morelines), self.header, msg)
-
+        msg = ("To: %s\nFrom: %s\nSubject: %s\n%s%s%s"
+               % (address,
+                  fromAddr,
+                  subject,
+                  "".join(morelines),
+                  self.header,
+                  msg))
         return msg
 
     def initializeHeaders(self, sec):
@@ -1022,7 +1096,7 @@ class MailBase:
         # set subject
         self.subject = _wrapHeader(sec.get("SubjectLine").strip()).strip()
 
-        header = [ "X-Anonymous: yes\n" ]
+        header = ["X-Anonymous: yes\n"]
 
         # I'm putting this in a list so adding headers will be simple
         for h in ['X-Abuse', 'Comments']:
@@ -1041,7 +1115,8 @@ class MailBase:
 
         self.header = "".join(header)
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 class MBoxModule(DeliveryModule, MailBase):
     """Implementation for MBOX delivery: sends messages, via SMTP, to
        addresses from a local file.  The file must have the format
@@ -1071,17 +1146,15 @@ class MBoxModule(DeliveryModule, MailBase):
     def getConfigSyntax(self):
         # FFFF There should be some way to say that fields are required
         # FFFF if the module is enabled.
-        cfg = { 'Enabled' : ('REQUIRE',  "boolean", "no"),
-                'Retry': ('ALLOW', "intervalList",
-                          "7 hours for 6 days"),
-                'AddressFile' : ('ALLOW', "filename", None),
-                'RemoveContact' : ('ALLOW', None, None),
-                'SMTPServer' : ('ALLOW', None, None),
-                'SendmailCommand' : ('ALLOW', "command", None),
-                'Advertise' : ('ALLOW', "boolean", "yes")
-              }
+        cfg = {'Enabled': ('REQUIRE',  "boolean", "no"),
+               'Retry': ('ALLOW', "intervalList", "7 hours for 6 days"),
+               'AddressFile': ('ALLOW', "filename", None),
+               'RemoveContact': ('ALLOW', None, None),
+               'SMTPServer': ('ALLOW', None, None),
+               'SendmailCommand': ('ALLOW', "command", None),
+               'Advertise': ('ALLOW', "boolean", "yes")}
         cfg.update(MailBase.COMMON_OPTIONS)
-        return { "Delivery/MBOX" : cfg }
+        return {"Delivery/MBOX": cfg}
 
     def validateConfig(self, config, lines, contents):
         sec = config['Delivery/MBOX']
@@ -1089,18 +1162,19 @@ class MBoxModule(DeliveryModule, MailBase):
             return
         for field in ['AddressFile', 'ReturnAddress', 'RemoveContact']:
             if not sec.get(field):
-                raise ConfigError("Missing field %s in [Delivery/MBOX]"%field)
+                raise ConfigError("Missing field %s in [Delivery/MBOX]"
+                                  % field)
         if not os.path.exists(sec['AddressFile']):
-            raise ConfigError("Address file %s seems not to exist."%
-                              sec['AddressFile'])
+            raise ConfigError("Address file %s seems not to exist."
+                              % sec['AddressFile'])
         for field in ['ReturnAddress', 'RemoveContact']:
             if not isSMTPMailbox(sec[field]):
                 LOG.warn("Value of %s (%s) doesn't look like an email address",
                          field, sec[field])
         if (sec['SMTPServer'] is not None and
-            sec['SendmailCommand'] is not None):
-            raise ConfigError("Cannot specify both SMTPServer and SendmailCommand")
-
+                sec['SendmailCommand'] is not None):
+            raise ConfigError("Cannot specify both SMTPServer and "
+                              "SendmailCommand")
         config.validateRetrySchedule("Delivery/MBOX")
 
     def configure(self, config, moduleManager):
@@ -1109,8 +1183,8 @@ class MBoxModule(DeliveryModule, MailBase):
             return
 
         sec = config['Delivery/MBOX']
-        self.advertise = sec.get('Advertise') #DOCDOC
-        self.cfgSection = sec.copy() #DOCDOC
+        self.advertise = sec.get('Advertise')  # DOCDOC
+        self.cfgSection = sec.copy()  # DOCDOC
         self.addressFile = sec['AddressFile']
         self.returnAddress = sec['ReturnAddress']
         self.contact = sec['RemoveContact']
@@ -1148,11 +1222,11 @@ class MBoxModule(DeliveryModule, MailBase):
                 continue
             m = address_line_re.match(line)
             if not m:
-                raise ConfigError("Bad address on line %s of %s"%(
-                    lineno,self.addressFile))
+                raise ConfigError("Bad address on line %s of %s"
+                                  % (lineno, self.addressFile))
             self.addresses[m.group(1)] = m.group(2)
             LOG.trace("Mapping MBOX address %s -> %s", m.group(1),
-                           m.group(2))
+                      m.group(2))
 
         moduleManager.enableModule(self)
 
@@ -1169,15 +1243,15 @@ class MBoxModule(DeliveryModule, MailBase):
                   Version: 0.1
                   Maximum-Size: %s
                   Allow-From: %s
-               """ % (floorDiv(self.maxMessageSize,1024), allowFrom)
+               """ % (floorDiv(self.maxMessageSize, 1024), allowFrom)
 
     def getName(self):
         return "MBOX"
 
     def getExitTypes(self):
-        return [ mixminion.Packet.MBOX_TYPE ]
+        return [mixminion.Packet.MBOX_TYPE]
 
-    def processMessage(self, packet): #message, tag, exitType, address):
+    def processMessage(self, packet):  # message, tag, exitType, address):
         # Determine that message's address;
         assert packet.getExitType() == mixminion.Packet.MBOX_TYPE
         LOG.debug("Received MBOX message")
@@ -1194,13 +1268,18 @@ class MBoxModule(DeliveryModule, MailBase):
             return DELIVER_FAIL_NORETRY
 
         # Deliver the message
-        return sendSMTPMessage(self.cfgSection, [address], self.returnAddress, msg)
+        return sendSMTPMessage(self.cfgSection,
+                               [address],
+                               self.returnAddress,
+                               msg)
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 class SMTPModule(DeliveryModule, MailBase):
     """Common base class for SMTP mail."""
     def __init__(self):
         DeliveryModule.__init__(self)
+
     def getServerInfoBlock(self):
         if not self.advertise:
             return ""
@@ -1210,15 +1289,18 @@ class SMTPModule(DeliveryModule, MailBase):
             allowFrom = "no"
         return ("[Delivery/SMTP]\nVersion: 0.1\n"
                 "Maximum-Size: %s\nAllow-From: %s\n") % (
-                    floorDiv(self.maxMessageSize,1024), allowFrom)
+                    floorDiv(self.maxMessageSize, 1024), allowFrom)
+
     def getName(self):
         return "SMTP"
+
     def getExitTypes(self):
-        return [ mixminion.Packet.SMTP_TYPE ]
+        return [mixminion.Packet.SMTP_TYPE]
+
 
 class DirectSMTPModule(SMTPModule):
     """Module that delivers SMTP messages via a local MTA."""
-    ## Fields
+    # Fields
     # server -- Name of the MTA server.
     # subject: The default subject line we use for outgoing messages
     # fromPattern: A printf format string with a field for user-supplied
@@ -1235,16 +1317,15 @@ class DirectSMTPModule(SMTPModule):
         return self.retrySchedule
 
     def getConfigSyntax(self):
-        cfg = { 'Enabled' : ('REQUIRE', "boolean", "no"),
-                'Advertise' : ('ALLOW', "boolean", "yes"),
-                'Retry': ('ALLOW', "intervalList",
-                          "7 hours for 6 days"),
-                'BlacklistFile' : ('ALLOW', "filename", None),
-                'SMTPServer' : ('ALLOW', None, None),
-                'SendmailCommand' : ('ALLOW', "command", None),
-                }
+        cfg = {'Enabled': ('REQUIRE', "boolean", "no"),
+               'Advertise': ('ALLOW', "boolean", "yes"),
+               'Retry': ('ALLOW', "intervalList", "7 hours for 6 days"),
+               'BlacklistFile': ('ALLOW', "filename", None),
+               'SMTPServer': ('ALLOW', None, None),
+               'SendmailCommand': ('ALLOW', "command", None),
+               }
         cfg.update(MailBase.COMMON_OPTIONS)
-        return { "Delivery/SMTP" : cfg }
+        return {"Delivery/SMTP": cfg}
 
     def validateConfig(self, config, lines, contents):
         sec = config['Delivery/SMTP']
@@ -1252,17 +1333,18 @@ class DirectSMTPModule(SMTPModule):
             return
         for field in ('ReturnAddress',):
             if not sec.get(field):
-                raise ConfigError("Missing field %s in [Delivery/SMTP]"%field)
+                raise ConfigError("Missing field %s in [Delivery/SMTP]"
+                                  % field)
         fn = sec.get('BlacklistFile')
         if fn and not os.path.exists(fn):
-            raise ConfigError("Blacklist file %s seems not to exist"%fn)
+            raise ConfigError("Blacklist file %s seems not to exist" % fn)
         if not isSMTPMailbox(sec['ReturnAddress']):
             LOG.warn("Return address (%s) doesn't look like an email address",
                      sec['ReturnAddress'])
         if (sec['SMTPServer'] is not None and
-            sec['SendmailCommand'] is not None):
-            raise ConfigError("Cannot specify both SMTPServer and SendmailCommand")
-
+                sec['SendmailCommand'] is not None):
+            raise ConfigError("Cannot specify both SMTPServer and "
+                              "SendmailCommand")
         config.validateRetrySchedule("Delivery/SMTP")
 
     def configure(self, config, manager):
@@ -1271,8 +1353,8 @@ class DirectSMTPModule(SMTPModule):
             manager.disableModule(self)
             return
 
-        self.advertise = sec.get('Advertise') #DOCDOC
-        self.cfgSection = sec.copy() #DOCDOC
+        self.advertise = sec.get('Advertise')  # DOCDOC
+        self.cfgSection = sec.copy()  # DOCDOC
         self.retrySchedule = sec['Retry']
         if sec['BlacklistFile']:
             self.blacklist = EmailAddressSet(fname=sec['BlacklistFile'])
@@ -1310,7 +1392,11 @@ class DirectSMTPModule(SMTPModule):
             return DELIVER_FAIL_NORETRY
 
         # Send the message.
-        return sendSMTPMessage(self.cfgSection, [address], self.returnAddress, msg)
+        return sendSMTPMessage(self.cfgSection,
+                               [address],
+                               self.returnAddress,
+                               msg)
+
 
 class MixmasterSMTPModule(SMTPModule):
     """Implements SMTP by relaying messages via Mixmaster nodes.  This
@@ -1319,7 +1405,7 @@ class MixmasterSMTPModule(SMTPModule):
     # (Mixmaster has tons of options, but we ignore them, since
     #  this is only a temporary workaround until enough people
     #  are running SMTP exit nodes.)
-    ## Fields:
+    # Fields:
     # server: The path (usually a single server) to use for outgoing messages.
     #    Multiple servers should be separated by commas.
     # subject: The default subject line we use for outgoing messages
@@ -1337,18 +1423,17 @@ class MixmasterSMTPModule(SMTPModule):
         return self.retrySchedule
 
     def getConfigSyntax(self):
-        cfg = { 'Enabled' : ('REQUIRE', "boolean", "no"),
-                'Retry': ('ALLOW', "intervalList",
-                          "7 hours for 6 days"),
-                'MixCommand' : ('REQUIRE', "command", None),
-                'Server' : ('REQUIRE', None, None),
-                'Advertise' : ('ALLOW', "boolean", "yes"),
-                }
+        cfg = {'Enabled': ('REQUIRE', "boolean", "no"),
+               'Retry': ('ALLOW', "intervalList", "7 hours for 6 days"),
+               'MixCommand': ('REQUIRE', "command", None),
+               'Server': ('REQUIRE', None, None),
+               'Advertise': ('ALLOW', "boolean", "yes"),
+               }
         cfg.update(MailBase.COMMON_OPTIONS)
-        return { "Delivery/SMTP-Via-Mixmaster" : cfg }
+        return {"Delivery/SMTP-Via-Mixmaster": cfg}
 
     def validateConfig(self, config, lines, contents):
-        #FFFF write more
+        # FFFF write more
         sec = config['Delivery/SMTP-Via-Mixmaster']
         if not sec.get("Enabled"):
             return
@@ -1404,9 +1489,10 @@ class MixmasterSMTPModule(SMTPModule):
         try:
             LOG.debug("Calling %s %s", cmd, " ".join(opts))
             code = os.spawnl(os.P_WAIT, cmd, cmd, *opts)
-        except OSError,e:
-            if e.errno not in (errno.EAGAIN, errno.ENOMEM, errno.ECHILD): raise
-            LOG.warn("Transient error while running Mixmaster: %s",e)
+        except OSError, e:
+            if e.errno not in (errno.EAGAIN, errno.ENOMEM, errno.ECHILD):
+                raise LOG.warn("Transient error while running Mixmaster: %s",
+                               e)
             return DELIVER_FAIL_RETRY
 
         LOG.debug("Queued Mixmaster message: exit code %s", code)
@@ -1421,10 +1507,12 @@ class MixmasterSMTPModule(SMTPModule):
         try:
             LOG.debug("Calling %s -S", cmd)
             os.spawnl(os.P_WAIT, cmd, cmd, "-S")
-        except OSError,e:
-            if e.errno not in (errno.EAGAIN, errno.ENOMEM, errno.ECHILD): raise
-            LOG.warn("Transient error while running Mixmaster: %s",e)
+        except OSError, e:
+            if e.errno not in (errno.EAGAIN, errno.ENOMEM, errno.ECHILD):
+                raise LOG.warn("Transient error while running Mixmaster: %s",
+                               e)
             return DELIVER_FAIL_RETRY
+
 
 class _MixmasterSMTPModuleDeliveryQueue(SimpleModuleDeliveryQueue):
     """Delivery queue for _MixmasterSMTPModule.  Same as
@@ -1434,21 +1522,24 @@ class _MixmasterSMTPModuleDeliveryQueue(SimpleModuleDeliveryQueue):
         SimpleModuleDeliveryQueue._deliverMessages(self, msgList)
         self.module.flushMixmasterPool()
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 MAIL_HEADERS = ["SUBJECT", "FROM", "IN-REPLY-TO", "REFERENCES"]
+
+
 def checkMailHeaders(headers):
     """Check whether the decoded headers in a provided dict are permissible
        for an outgoing email message.  Raise ParseError if they are not."""
     for k in headers.keys():
         if k not in MAIL_HEADERS:
-            LOG.warn("Skipping unrecognized mail header %s"%k)
+            LOG.warn("Skipping unrecognized mail header %s", k)
 
     fromAddr = headers['FROM']
     if re.search(r'[\[\]:"]', fromAddr):
         raise ParseError("Invalid FROM address: %r" % fromAddr)
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 
 def sendSMTPMessage(cfgSection, toList, fromAddr, message):
     """Send a single SMTP message.  The message will be delivered to
@@ -1469,7 +1560,7 @@ def sendSMTPMessage(cfgSection, toList, fromAddr, message):
         f.close()
         res = DELIVER_OK
     else:
-        server = cfgSection.get('SMTPServer','localhost')
+        server = cfgSection.get('SMTPServer', 'localhost')
         LOG.debug("Sending message via SMTP host %s to %s", server, toList)
         con = smtplib.SMTP(server)
         try:
@@ -1485,14 +1576,16 @@ def sendSMTPMessage(cfgSection, toList, fromAddr, message):
 
     return res
 
-#----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
 
 def _wrapHeader(text):
     """Wraps a header. If it's more than 70 characters long, adds
        spaces to the next lines so it's properly indented."""
     lines = textwrap.wrap(text.strip(), width=70, subsequent_indent="    ")
-    lines.append("") # to get final \n
+    lines.append("")  # to get final \n
     return "\n".join(lines)
+
 
 def _escapeMessageForEmail(packet):
     """Helper function: Given a DeliveryPacket, escape the message if
@@ -1525,4 +1618,4 @@ before sending it to you.\n\n"""
         junk_msg = ""
 
     encMsg = packet.getTextEncodedMessage()
-    return "%s%s"%(junk_msg, encMsg.pack())
+    return "%s%s" % (junk_msg, encMsg.pack())
