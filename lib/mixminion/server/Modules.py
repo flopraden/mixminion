@@ -17,6 +17,7 @@ import re
 import sys
 import smtplib
 import socket
+import subprocess
 import threading
 import time
 
@@ -1555,11 +1556,18 @@ def sendSMTPMessage(cfgSection, toList, fromAddr, message):
     # FFFF We should leave the connection open if we're going to send many
     # FFFF messages in a row.
     if cfgSection['SendmailCommand'] is not None:
-        cmd, opts = cfgSection['SendmailCommand']
-        command = cmd + (" ".join(opts))
-        f = os.popen(command, 'w')
-        f.write(message)
-        f.close()
+        cmd, args = cfgSection['SendmailCommand']
+        args.insert(0, cmd)
+        LOG.debug("Using Sendmail Command: %s", " ".join(args))
+        p = subprocess.Popen(args,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        out, err = p.communicate(message)
+        if len(out) > 0:
+            LOG.warn("%s said on stdout: %s", cmd, out)
+        if len(err) > 0:
+            LOG.warn("%s said on stderr: %s", cmd, out)
         res = DELIVER_OK
     else:
         server = cfgSection.get('SMTPServer', 'localhost')
