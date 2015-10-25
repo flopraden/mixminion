@@ -1043,6 +1043,7 @@ class MailBase:
         'SubjectLine': ('ALLOW', None, 'Type III Anonymous Message'),
         'X-Abuse': ('ALLOW', None, None),
         'Comments': ('ALLOW', None, None),
+        'Disclaimer': ('ALLOW', None, None),
         'Message': ('ALLOW', None, None),
         'FromTag': ('ALLOW', None, "[Anon]"),
         'ReturnAddress': ('ALLOW', None, None),
@@ -1099,7 +1100,7 @@ class MailBase:
         header = ["X-Anonymous: yes\n"]
 
         # I'm putting this in a list so adding headers will be simple
-        for h in ['X-Abuse', 'Comments']:
+        for h in ['X-Abuse', 'Comments', 'Disclaimer']:
             val = sec.get(h)
             if val:
                 header.append(_wrapHeader("%s: %s" % (h, val)))
