@@ -136,7 +136,7 @@ if USE_OPENSSL and sys.platform == 'win32':
     LIBRARY_DIRS = []
 
     incd = ".\\contrib\\OpenSSL\\include"
-    libd = ".\\contrib\\OpenSSL\\lib\\VC"
+    libd = ".\\contrib\\OpenSSL\\"
 
     if os.path.exists(incd): INCLUDE_DIRS.append(incd)
     if os.path.exists(incd.lower()): INCLUDE_DIRS.append(incd.lower())
@@ -511,14 +511,19 @@ if 'py2exe' in sys.argv:
     VERSION = "." .join(map(str,VERSION_INFO))
     # XXXX This is only necessary because of an apparent py2exe 0.5.0 bug;
     # XXXX I have submitted a bug report [911596] to sourceforge.
-    sys.path.append("./build/lib.win32-2.3")
+    sys.path.append("./build/lib.win32-2.7")
+
     EXTRA = {
         'console' : SCRIPTS,
-        'zipfile' : r'lib\shared.zip',
+        'zipfile' : None,
         'options' : {'py2exe':
                      { 'compressed':1,
+                     'bundle_files': 1,
                      'excludes': ['mixminion._textwrap','mixminion._unittest',
-                                  'mixminion._zlibutil','coverage'] }
+                                  'mixminion._zlibutil','coverage'],
+                     'dll_excludes': ['w9xpopen.exe'],
+                     'ignores': ['_pybsddb', '_scproxy', '_sysconfigdata',
+                                 'xreadlines'] }
                  },
         'data_files' : [("",["README","TODO","LICENSE","HISTORY",
                              "etc/mixminiond.conf"])],

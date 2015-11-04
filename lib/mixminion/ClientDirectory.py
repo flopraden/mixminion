@@ -17,7 +17,6 @@ import operator
 import os
 import re
 import socket
-import ssl
 import stat
 import sys
 import threading
@@ -25,6 +24,8 @@ import time
 import types
 import rfc822
 import urllib2
+if sys.version_info >= (2,7,9):
+    import ssl
 
 from httplib import HTTPException
 
@@ -475,7 +476,7 @@ class DirectoryBackedDescriptorSource(DescriptorSource):
                                     'Cache-Control' : 'no-cache', })
                 startTime = time.time()
                 if sys.version_info >= (2,7,9):
-                    ctx = ssl.create_default_context()
+                    ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
                     ctx.check_hostname = False
                     ctx.verify_mode = ssl.CERT_NONE
                     infile = urllib2.urlopen(request, context=ctx)

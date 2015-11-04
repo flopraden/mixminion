@@ -13,12 +13,13 @@ import os
 import errno
 import socket
 import re
-import ssl
 import sys
 import time
 import threading
 import urllib
 import urllib2
+if sys.version_info >= (2,7,9):
+    import ssl
 
 import mixminion._minionlib
 import mixminion.Crypto
@@ -781,14 +782,6 @@ class ServerKeyset:
         f = None
         try:
             try:
-                if sys.version_info >= (2,7,9):
-                    ctx = ssl.create_default_context()
-                    ctx.check_hostname = False
-                    ctx.verify_mode = ssl.CERT_NONE
-                    infile = urllib2.urlopen(request, context=ctx)
-                else:
-                    infile = urllib2.urlopen(request)
-
                 #############################################
                 # some python versions verify certificates
                 # anemone.mooo.com uses a self-signed cert
@@ -797,7 +790,7 @@ class ServerKeyset:
                 # (although as Zax says, it is certainly a
                 # kludge ;)
                 if sys.version_info >= (2,7,9):
-                    ctx = ssl.create_default_context()
+                    ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
                     ctx.check_hostname = False
                     ctx.verify_mode = ssl.CERT_NONE
                     f = urllib2.urlopen(url, fields, context=ctx)
