@@ -795,7 +795,7 @@ class ServerKeyset:
                     ctx.verify_mode = ssl.CERT_NONE
                     f = urllib2.urlopen(url, fields, context=ctx)
                 else:
-                    f = urllib2.urlopen(url, fields, context=ctx)
+                    f = urllib2.urlopen(url, fields)
                 #############################################
                 #f = urllib2.urlopen(url, fields)
                 info = f.info()
