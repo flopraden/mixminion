@@ -1353,6 +1353,9 @@ class ClientDirectory:
         elif len(relays) == 1:
             LOG.warn("Only one relay known")
 
+        # Minimum hops between two occurences of the same server
+        minDistance = 3
+
         # Now fill in the servers. For each relay we need...
         for i in xrange(len(servers)):
             if servers[i] is not None:
@@ -1366,6 +1369,10 @@ class ClientDirectory:
                 next = servers[i+1]
             else:
                 next = None
+            # Get servers in neighborhood
+            leftScope = max(0, i-minDistance);
+            rightScope = min(i+minDistance, len(servers));
+            neighborhood = servers[leftScope:i] + servers[i+1:rightScope]
             # ...and see if there are any relays left that aren't adjacent?
             candidates = []
             for c in relays:
@@ -1385,6 +1392,9 @@ class ClientDirectory:
                 if ((prev and not prev.canRelayTo(c)) or
                     (next and not c.canRelayTo(next))):
                     continue
+                # Avoid hops in neighborhood
+                if c in neighborhood:
+                  continue
                 # Avoid first hops that we can't deliver to.
                 if (not prev) and not c.canStartAt():
                     continue

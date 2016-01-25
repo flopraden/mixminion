@@ -110,7 +110,7 @@ class SQLiteDatabase:
         """Create a SQLite database storing its data in the file 'location'."""
         parent = os.path.split(location)[0]
         createPrivateDir(parent)
-        self._theConnection = sqlite3.connect(location, isolation_level=None)
+        self._theConnection = sqlite3.connect(location, isolation_level=None, check_same_thread=False)
         self._theCursor = self._theConnection.cursor()
 
     def close(self):
@@ -831,10 +831,10 @@ class PingLog:
             del d
         del dailyLatencies
         allLatencies.sort()
-        #if allLatencies:
-        #    LOG.warn("%s pings in %s intervals. Median latency is %s seconds",
-        #             nPings, nPeriods,
-        #             allLatencies[floorDiv(len(allLatencies),2)])
+        if allLatencies:
+            LOG.trace("%s pings in %s intervals. Median latency is %s seconds",
+                     nPings, nPeriods,
+                     allLatencies[floorDiv(len(allLatencies),2)])
 
         # 2. Compute the number of pings actually received each day,
         #    and the number of pings received each day weighted by
@@ -872,10 +872,10 @@ class PingLog:
                 rel = wrcvd / wsent
             else:
                 rel = 0.0
-            #if sent:
-            #    LOG.warn("Of pings sent on day %s, %s/%s were received. "
-            #             "rel=%s/%s=%s",
-            #             pIdx, rcvd, sent, wrcvd, wsent, rel)
+            if sent:
+                LOG.trace("Of pings sent on day %s, %s/%s were received. "
+                         "rel=%s/%s=%s",
+                         pIdx, rcvd, sent, wrcvd, wsent, rel)
             self._setOneHop(
                 (serverID, intervalID),
                 (sent, rcvd, latent, wsent, wrcvd, rel))
@@ -965,15 +965,14 @@ class PingLog:
 
         isInteresting = ((nSent < 3 and nReceived == 0) or
                          (nExpected and nReceived <= nExpected*0.3))
-        if 0:
-            if isInteresting:
-                if nSent < 3 and nReceived == 0:
-                    LOG.trace("%s,%s is interesting because %d were sent and %d were received",
-                              s1,s2, nSent, nReceived)
-                elif nExpected and nReceived <= nExpected*0.3:
-                    LOG.trace("%s,%s is interesting because we expected %s and got %s", s1, s2, nExpected, nReceived)
-                else:
-                    LOG.trace("I have no idea why %s,%s is interesting.",s1,s2)
+        if isInteresting:
+            if nSent < 3 and nReceived == 0:
+                LOG.trace("%s,%s is interesting because %d were sent and %d were received",
+                          s1,s2, nSent, nReceived)
+            elif nExpected and nReceived <= nExpected*0.3:
+                LOG.trace("%s,%s is interesting because we expected %s and got %s", s1, s2, nExpected, nReceived)
+            else:
+                LOG.warn("I have no idea why %s,%s is interesting.",s1,s2)
 
         return nSent, nReceived, isBroken, isInteresting
 
@@ -1115,14 +1114,14 @@ class PingLog:
         """
         if now is None: now=time.time()
         LOG.info("Computing ping results.")
-        LOG.info("Starting to compute server uptimes.")
+        LOG.debug("Starting to compute server uptimes.")
         self.calculateUptimes(now-24*60*60*12, now)
-        LOG.info("Starting to compute one-hop ping results")
+        LOG.debug("Starting to compute one-hop ping results")
         self.calculateOneHopResult(now)
-        LOG.info("Starting to compute two-hop chain status")
+        LOG.debug("Starting to compute two-hop chain status")
         self.calculateChainStatus(now)
         if outFname:
-            LOG.info("Writing ping results to disk")
+            LOG.debug("Writing ping results to disk")
             f = AtomicFile(outFname, 'w')
             self.dumpAllStatus(f, now-24*60*60*12, now)
             f.close()
@@ -1192,7 +1191,7 @@ class PingGenerator:
         assert (path2[-1].getIdentityDigest() ==
                 self.keyring.getIdentityKeyDigest())
         try:
-            LOG.debug("Pinger checking path %s",",".join([s.getNickname() for s in (path1+path2[:-1])]))
+            LOG.trace("Pinger checking path %s",",".join([s.getNickname() for s in (path1+path2[:-1])]))
             p1 = self.directory.getPath(path1)
             p2 = self.directory.getPath(path2)
         except UIError, e:
@@ -1207,8 +1206,7 @@ class PingGenerator:
             path1=p1, path2=p2, suppressTag=1)
         addr = p1[0].getMMTPHostInfo()
         obj = mixminion.server.PacketHandler.RelayedPacket(addr, packet)
-        LOG.debug("Pinger queueing ping along path %s [%s]",verbose_path,
-                  formatBase64(payloadHash))
+        LOG.debug("Pinger queueing %d-hop ping along path %s", len(p1+p2[:-1]), verbose_path)
         self.pingLog.queuedPing(payloadHash, identity_list)
         self.outgoingQueue.queueDeliveryMessage(obj, addr)
         return 1
@@ -1319,7 +1317,7 @@ class OneHopPingGenerator(_PingScheduler,PingGenerator):
             identities[s.getIdentityDigest()]=1
         for (i,) in self.nextPingTime.keys():
             if not identities.has_key(i):
-                LOG.trace("Unscheduling 1-hop ping for %s",
+                LOG.debug("Unscheduling 1-hop ping for %s",
                           binascii.b2a_hex(i))
                 del self.nextPingTime[(i,)]
         for i in identities.keys():
@@ -1339,6 +1337,7 @@ class OneHopPingGenerator(_PingScheduler,PingGenerator):
             when = self.nextPingTime.get((i,))
             if when is None:
                 # No ping scheduled; server must be new to directory.
+                LOG.debug("No ping scheduled; server must be new to directory.")
                 self._schedulePing((i,),now)
                 continue
             elif when > now: # Not yet.
@@ -1381,7 +1380,7 @@ class TwoHopPingGenerator(_PingScheduler, PingGenerator):
             identities[s.getIdentityDigest()]=1
         for id1,id2 in self.nextPingTime.keys():
             if not (identities.has_key(id1) and identities.has_key(id2)):
-                LOG.trace("Unscheduling 2-hop ping for %s,%s",
+                LOG.debug("Unscheduling 2-hop ping for %s,%s",
                           binascii.b2a_hex(id1),binascii.b2a_hex(id2))
                 del self.nextPingTime[(id1,id2)]
         for id1 in identities.keys():
@@ -1391,10 +1390,10 @@ class TwoHopPingGenerator(_PingScheduler, PingGenerator):
     def _getPingInterval(self, path):
         p = ",".join([self.pingLog._db.encodeIdentity(i) for i in path])
         if self.pingLog._interestingChains.get(p, 0):
-            #LOG.trace("While scheduling, I decided that %s was interesting",p)
+            LOG.trace("While scheduling, I decided that %s was interesting",p)
             return self._interesting_interval
         else:
-            #LOG.trace("While scheduling, I decided that %s was dull",p)
+            LOG.trace("While scheduling, I decided that %s was dull",p)
             return self._dull_interval
 
     def sendPings(self, now=None):
@@ -1458,16 +1457,33 @@ class TestLinkPaddingGenerator(PingGenerator):
 class CompoundPingGenerator:
     """A CompoundPingGenerator wraps several PingGenerators as a single
        PingGenerator object."""
-    def __init__(self, generators):
+    def __init__(self, config, generators):
+        self.config = config
         self.gens = generators[:]
     def connect(self, directory, outgoingQueue, pingLog, keyring):
         assert directory
         assert outgoingQueue
         assert pingLog
         assert keyring
+        self.directory = directory
+        self.dumpServerNames()
         for g in self.gens:
             g.connect(directory, outgoingQueue, pingLog, keyring)
+    def dumpServerNames(self):
+        LOG.debug("Dumping server key-name mapping to disk")
+        outFname = os.path.join(self.config.getWorkDir(), "pinger", "servers")
+        f = AtomicFile(outFname, 'w')
+        print >>f, "# Map from server identity to nickname"
+        print >>f, "SERVER_NAMES = {"
+        servers = self.directory.getAllServers()
+        for s in servers:
+            print >>f, "   %r : %r," % (
+            binascii.b2a_hex(s.getIdentityDigest()),
+            s.getNickname())
+        print >>f, "}"
+        f.close()
     def directoryUpdated(self):
+        self.dumpServerNames()
         for g in self.gens:
             g.directoryUpdated()
     def scheduleAllPings(self, now=None):
@@ -1500,7 +1516,7 @@ def getPingGenerator(config):
     pingers.append(OneHopPingGenerator(config))
     pingers.append(TwoHopPingGenerator(config))
     pingers.append(TestLinkPaddingGenerator(config))
-    return CompoundPingGenerator(pingers)
+    return CompoundPingGenerator(config,pingers)
 
 def canRunPinger():
     """Return true iff we have the required libraries installed to run a pinger.

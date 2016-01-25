@@ -171,6 +171,8 @@ class ServerConfig(mixminion.Config._ConfigFile):
               'SubjectLine', 'MaximumSize']),
             ("Delivery/Fragmented",
              ['Enabled', 'MaximumSize','MaximumInterval']),
+            ("Pinging", ['Enabled', 'ServerPingPeriod', 'DullChainPingPeriod',
+                        'ChainPingPeriod', 'ServerProbePeriod']),
             ]:
             for k in entries:
                 ent = self[section].get(k,None)

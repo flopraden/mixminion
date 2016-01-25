@@ -896,7 +896,7 @@ def checkDescriptorConsistency(info, config, log=1, isPublished=1):
         previousMidnight(config_s['PublicKeyLifetime'].getSeconds() +
                          info_s['Valid-After'])):
         warn("Published lifetime does not match PublicKeyLifetime")
-        warn("(Future keys will be generated with the correct lifetime")
+        warn("(Future keys will be generated with the correct lifetime)")
         warn.errors -= 2 # We can't do anything about this!
 
     insecurities = config.getInsecurities()
@@ -951,7 +951,7 @@ def checkDescriptorConsistency(info, config, log=1, isPublished=1):
             config_out = (config['Delivery/SMTP-Via-Mixmaster'].get("Enabled")
                  and config['Delivery/SMTP-Via-Mixmaster'].get("Advertise", 1))
         if info_out and not config_out:
-            warn("%s published, but not enabled.", section)
+            warn("%s published, but not enabled/advertised.", section)
         if config_out and not info_out:
             warn("%s enabled, but not published.", section)
 

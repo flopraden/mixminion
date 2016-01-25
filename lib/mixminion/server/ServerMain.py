@@ -223,8 +223,7 @@ class IncomingQueue(mixminion.Filestore.StringStore):
                 LOG.debug("Processed packet IN:%s; inserting into mix pool",
                           handle)
         except mixminion.Crypto.CryptoError, e:
-            LOG.warn("Invalid PK or misencrypted header in packet IN:%s: %s",
-                     handle, e)
+            LOG.warn("Invalid PK or misencrypted header in packet: %s", e)
             self.removeMessage(handle)
         except mixminion.Packet.ParseError, e:
             LOG.warn("Malformed packet IN:%s dropped: %s", handle, e)
@@ -743,6 +742,10 @@ class MixminionServer(Scheduler):
             self.keyring.lock()
             self.keyring.createKeysAsNeeded()
             self.updateKeys(lock=0)
+            # Schedule another key update when new key becomes valid
+            self.scheduleEvent(OneTimeEvent(
+                self.keyring.getNextKeyRotation(),
+                self.updateKeys))
             if self.config['DirectoryServers'].get('Publish'):
                 self.keyring.publishKeys()
             return self.keyring.getNextKeygen()
@@ -842,11 +845,12 @@ class MixminionServer(Scheduler):
                 mixminion.server.Pinger.HEARTBEAT_INTERVAL))
             # FFFF if we aren't using a LOCKING_IS_COURSE database, we will
             # FFFF still want this to happen in another thread.
+            recomputeInterval = self.config['Pinging']['RecomputeInterval'].getSeconds();
             self.scheduleEvent(RecurringEvent(
-                now+60,
+                now+recomputeInterval,
                 lambda self=self: self.pingLog.calculateAll(
                   os.path.join(self.config.getWorkDir(), "pinger", "status")),
-                self.config['Pinging']['RecomputeInterval'].getSeconds()))
+                recomputeInterval))
 
         # Makes next update get scheduled.
         nextUpdate = self.updateDirectoryClient(reschedulePings=0)
@@ -1107,7 +1111,6 @@ def readConfigFile(configFile):
        and validate it.  Return the validated configuration file.
     """
     if configFile is None:
-        configFile = None
         for p in ["~/.mixminiond.conf", "~/etc/mixminiond.conf",
                   "/etc/mixminiond.conf", "/etc/mixminion/mixminiond.conf" ]:
             p = os.path.expanduser(p)

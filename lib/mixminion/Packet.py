@@ -900,16 +900,20 @@ def parseMessageAndHeaders(message):
        Skips improperly formatted headers."""
     headers = {}
     msg = message
+    previous = None
     while 1:
         if msg[0] == '\n':
             return msg[1:], headers
         m = HEADER_RE.match(msg)
         if m:
             k,v = m.groups()
-            if len(v) > MAX_HEADER_LEN:
-                LOG.warn("Rejecting overlong exit header %r:%r...",k,v[:30])
+            if previous and k < previous:
+                LOG.warn("Rejecting out-of-order exit header %r:%r...",k,v[:30])
+            elif len(v) > MAX_HEADER_LEN:
+                 LOG.warn("Rejecting overlong exit header %r:%r...",k,v[:30])
             else:
                 headers[k] = v
+                previous = k
             msg = msg[m.end():]
         else:
             LOG.warn("Could not parse headers on message; not using them.")
